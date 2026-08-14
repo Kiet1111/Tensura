@@ -1,0 +1,6 @@
+{
+  "name": "Tensura Text RPG - Giọng Nói Thế Giới",
+  "description": "Game nhập vai Text-based RPG phong cách Tensura Slime với Game Master AI và Giọng Nói Thế Giới (World Voice System).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
