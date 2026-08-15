@@ -1,15 +1,15 @@
 import { StoryState, StoryMilestone, CharacterRelation } from '../types';
 
-export const INITIAL_STORY_ARCS = [
+export const INITIAL_STORY_ARCS: ReadonlyArray<string> = Object.freeze([
   'Chương 1: Hang Động Phong Ấn & Long Vương Veldora',
   'Chương 2: Ngôi Làng Goblin & Bộ Tộc Nanh Sói',
   'Chương 3: Bối Cảnh Quỷ Nhân Kijin & Tai Họa Orc',
   'Chương 4: Phong Ấn Charybdis & Lãnh Địa Tempest',
   'Chương 5: Tiệc Trà Ma Vương (Walpurgis) & Thức Tỉnh',
   'Chương 6: Cuộc Xâm Lược Từ Đế Quốc Đông Phương',
-];
+]);
 
-export const INITIAL_MILESTONES: StoryMilestone[] = [
+export const INITIAL_MILESTONES: ReadonlyArray<StoryMilestone> = Object.freeze([
   {
     id: 'm01',
     arc: 'Chương 1: Hang Động Phong Ấn & Long Vương Veldora',
@@ -64,9 +64,9 @@ export const INITIAL_MILESTONES: StoryMilestone[] = [
     status: 'locked',
     divergenceBonus: 0,
   },
-];
+]);
 
-export const INITIAL_RELATIONS: CharacterRelation[] = [
+export const INITIAL_RELATIONS: ReadonlyArray<CharacterRelation> = Object.freeze([
   {
     name: 'Rimuru Tempest',
     title: 'Lãnh Tụ Liên Minh Quái Vật Tempest (Slime)',
@@ -109,16 +109,19 @@ export const INITIAL_RELATIONS: CharacterRelation[] = [
     status: 'Đối đầu',
     notes: 'Xem bạn như một chướng ngại vật tiềm tàng cản trở kế hoạch thôn tính của hắn.',
   },
-];
+]);
 
+/**
+ * Khởi tạo trạng thái cốt truyện mới (Deep Clone chống ghi đè tham chiếu)
+ */
 export function getInitialStoryState(): StoryState {
   return {
     currentArc: INITIAL_STORY_ARCS[0],
     arcProgress: 10,
     divergenceRate: 0,
     variableTitle: 'Kẻ Chuyển Sinh Đến Từ Thế Giới Khác',
-    milestones: INITIAL_MILESTONES,
-    relations: INITIAL_RELATIONS,
+    milestones: INITIAL_MILESTONES.map((m) => ({ ...m })),
+    relations: INITIAL_RELATIONS.map((r) => ({ ...r })),
     recentCanonChanges: [
       'Bạn vừa chuyển sinh đến Thế Giới Tensura tại Hang Động Phong Ấn.',
       'Bắt đầu hành trình khám phá Rừng Lớn Jura và xây dựng vị thế của riêng bạn.',
@@ -126,26 +129,31 @@ export function getInitialStoryState(): StoryState {
   };
 }
 
+/**
+ * Lấy thông tin đánh giá tiến độ chương truyện với biên giới giá trị an toàn
+ */
 export function getStoryProgressInfo(arcProgress: number): {
   title: string;
   badgeColor: string;
   description: string;
 } {
-  if (arcProgress >= 80) {
+  const safeProgress = Math.max(0, Math.min(100, arcProgress));
+
+  if (safeProgress >= 80) {
     return {
       title: 'GIAI ĐOẠN ĐỈNH CAO CHƯƠNG',
       badgeColor: 'bg-rose-950 border-rose-500 text-rose-300 shadow-rose-500/30',
       description: 'Chương truyện đang bước vào giai đoạn quyết định với những biến cố lớn nhất.',
     };
   }
-  if (arcProgress >= 50) {
+  if (safeProgress >= 50) {
     return {
       title: 'DIỄN BIẾN CAO TRÀO',
       badgeColor: 'bg-purple-950 border-purple-400 text-purple-300 shadow-purple-500/30',
       description: 'Cốt truyện đang diễn ra sôi nổi với nhiều cuộc gặp gỡ và thử thách quan trọng.',
     };
   }
-  if (arcProgress >= 25) {
+  if (safeProgress >= 25) {
     return {
       title: 'MỞ RỘNG HÀNH TRÌNH',
       badgeColor: 'bg-amber-950 border-amber-400 text-amber-300 shadow-amber-500/20',
@@ -158,4 +166,3 @@ export function getStoryProgressInfo(arcProgress: number): {
     description: 'Bắt đầu bước chân vào thế giới Tensura với tư cách là một Kẻ Chuyển Sinh.',
   };
 }
-
