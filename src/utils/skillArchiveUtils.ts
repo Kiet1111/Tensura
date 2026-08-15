@@ -3,7 +3,20 @@ import { CANON_SKILL_SUBABILITIES } from './skillUtils';
 
 const SKILL_ARCHIVE_KEY = 'tensura_rpg_skill_archive_v2';
 
-export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
+/**
+ * Helper sinh Unique ID an toàn
+ */
+const generateSkillId = (prefix = 'archived'): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+};
+
+/**
+ * Thư viện kỹ năng mặc định (Chuẩn Tensura Canon)
+ */
+export const DEFAULT_TENSURA_ENCYCLOPEDIA: ReadonlyArray<Skill> = Object.freeze([
   // 1. Manas (マナス)
   {
     id: 'canon_manas_ciel',
@@ -20,7 +33,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     type: 'Bị động',
     attribute: 'Quy luật',
     isManas: true,
-    subSkills: CANON_SKILL_SUBABILITIES['ciel'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['ciel']?.subSkills || []
   },
 
   // 2. Ultimate Skills (究極能力)
@@ -38,7 +51,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     maxExp: 1600,
     type: 'Chủ động',
     attribute: 'Quy luật',
-    subSkills: CANON_SKILL_SUBABILITIES['raphael'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['raphael']?.subSkills || []
   },
   {
     id: 'canon_ult_beelzebuth',
@@ -54,7 +67,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     maxExp: 1600,
     type: 'Chủ động',
     attribute: 'Tấn công',
-    subSkills: CANON_SKILL_SUBABILITIES['beelzebuth'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['beelzebuth']?.subSkills || []
   },
   {
     id: 'canon_ult_uriel',
@@ -70,7 +83,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     maxExp: 1600,
     type: 'Chủ động',
     attribute: 'Phòng thủ',
-    subSkills: CANON_SKILL_SUBABILITIES['uriel'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['uriel']?.subSkills || []
   },
 
   // 3. Unique Skills (固有技能)
@@ -87,7 +100,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     maxExp: 1300,
     type: 'Chủ động',
     attribute: 'Tấn công',
-    subSkills: CANON_SKILL_SUBABILITIES['predator'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['predator']?.subSkills || []
   },
   {
     id: 'canon_uniq_great_sage',
@@ -102,7 +115,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     maxExp: 1300,
     type: 'Bị động',
     attribute: 'Hỗ trợ',
-    subSkills: CANON_SKILL_SUBABILITIES['great sage'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['great sage']?.subSkills || []
   },
   {
     id: 'canon_uniq_degenerate',
@@ -117,7 +130,7 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     maxExp: 1300,
     type: 'Chủ động',
     attribute: 'Hỗ trợ',
-    subSkills: CANON_SKILL_SUBABILITIES['degenerate'].subSkills
+    subSkills: CANON_SKILL_SUBABILITIES?.['degenerate']?.subSkills || []
   },
 
   // 4. Extra Skills (Extra Skill)
@@ -326,10 +339,16 @@ export const DEFAULT_TENSURA_ENCYCLOPEDIA: Skill[] = [
     attribute: 'Hỗ trợ',
     mpCost: 45
   }
-];
+]);
 
+/**
+ * Lấy danh sách kho kỹ năng (Kết hợp LocalStorage và Default Encyclopedia)
+ */
 export function getSkillArchive(): Skill[] {
-  if (typeof window === 'undefined') return DEFAULT_TENSURA_ENCYCLOPEDIA;
+  if (typeof window === 'undefined') {
+    return [...DEFAULT_TENSURA_ENCYCLOPEDIA];
+  }
+  
   try {
     const raw = localStorage.getItem(SKILL_ARCHIVE_KEY);
     if (raw) {
@@ -339,50 +358,89 @@ export function getSkillArchive(): Skill[] {
       }
     }
   } catch (e) {
-    console.error('Failed to read skill archive:', e);
+    console.error('[SkillArchive] Lỗi đọc kho kỹ năng từ localStorage:', e);
   }
-  return DEFAULT_TENSURA_ENCYCLOPEDIA;
+
+  return [...DEFAULT_TENSURA_ENCYCLOPEDIA];
 }
 
-export function saveSkillsToArchive(newSkills: Skill[]): { addedCount: number; totalCount: number } {
-  if (typeof window === 'undefined') return { addedCount: 0, totalCount: 0 };
-  
-  const existing = getSkillArchive();
-  const existingNames = new Set(existing.map(s => s.name.trim().toLowerCase()));
-  
-  let addedCount = 0;
-  const updatedList = [...existing];
+/**
+ * Lưu/Cập nhật kỹ năng mới vào kho lưu trữ (Upsert logic - chống ghi đè lỗi)
+ */
+export function saveSkillsToArchive(newSkills: Skill[]): { addedCount: number; updatedCount: number; totalCount: number } {
+  if (typeof window === 'undefined' || !Array.isArray(newSkills) || newSkills.length === 0) {
+    const current = getSkillArchive();
+    return { addedCount: 0, updatedCount: 0, totalCount: current.length };
+  }
 
-  newSkills.forEach(skill => {
-    const trimmedName = skill.name.trim().toLowerCase();
-    if (!existingNames.has(trimmedName)) {
-      existingNames.add(trimmedName);
-      updatedList.push({
+  const existing = getSkillArchive();
+  const skillMap = new Map<string, Skill>();
+
+  // Map danh sách cũ theo Key chuẩn hóa (ID hoặc Name)
+  existing.forEach((skill) => {
+    const key = skill.id || skill.name.trim().toLowerCase();
+    skillMap.set(key, skill);
+  });
+
+  let addedCount = 0;
+  let updatedCount = 0;
+
+  newSkills.forEach((skill) => {
+    if (!skill || !skill.name) return;
+
+    const normalizedName = skill.name.trim().toLowerCase();
+    const key = skill.id || normalizedName;
+
+    const existingSkill = skillMap.get(key) || Array.from(skillMap.values()).find(s => s.name.trim().toLowerCase() === normalizedName);
+
+    if (existingSkill) {
+      // Upsert: Cập nhật nếu phiên bản mới có Level hoặc EXP cao hơn
+      const isHigherLevel = (skill.level || 1) > (existingSkill.level || 1);
+      const isHigherExp = (skill.exp || 0) > (existingSkill.exp || 0);
+
+      if (isHigherLevel || isHigherExp || skill.description !== existingSkill.description) {
+        skillMap.set(existingSkill.id || key, {
+          ...existingSkill,
+          ...skill,
+          id: existingSkill.id || skill.id || generateSkillId()
+        });
+        updatedCount++;
+      }
+    } else {
+      // Thêm mới
+      const newId = skill.id || generateSkillId();
+      const newSkillEntry: Skill = {
         ...skill,
-        id: skill.id || `archived_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`
-      });
+        id: newId
+      };
+      skillMap.set(newId, newSkillEntry);
       addedCount++;
     }
   });
 
+  const updatedList = Array.from(skillMap.values());
+
   try {
     localStorage.setItem(SKILL_ARCHIVE_KEY, JSON.stringify(updatedList));
   } catch (e) {
-    console.error('Failed to save skill archive:', e);
+    console.error('[SkillArchive] Lỗi khi lưu kho kỹ năng vào localStorage (Storage Full):', e);
   }
 
   return {
     addedCount,
+    updatedCount,
     totalCount: updatedList.length
   };
 }
 
+/**
+ * Xóa sạch kho kỹ năng lưu trữ cá nhân (Khôi phục về mặc định)
+ */
 export function clearSkillArchive(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(SKILL_ARCHIVE_KEY);
   } catch (e) {
-    console.error('Failed to clear skill archive:', e);
+    console.error('[SkillArchive] Lỗi khi xóa kho kỹ năng:', e);
   }
 }
-
