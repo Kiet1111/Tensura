@@ -26,50 +26,43 @@ interface Props {
 
 export type LogFilterMode = 'all' | 'milestones_only' | 'gm_narrative' | 'world_voice';
 
-// Helper to determine if a log is a Milestone or Major Story Event
+// Set từ khóa để tra cứu O(1) hiệu năng cao
+const KEYWORD_SETS = new Set([
+  'thức tỉnh', 'tiến hóa', 'thăng hoa', 'mở khóa', 'danh hiệu',
+  'cốt truyện', 'chương ', 'cột mốc', 'veldora', 'rimuru',
+  'chân ma vương', 'ma vương', 'quân đoàn', 'thảm họa orc',
+  'walpurgis', 'long vương'
+]);
+
+const WV_KEYWORD_SETS = new Set([
+  'thức tỉnh', 'tiến hóa', 'danh hiệu', 'thành tựu', 'tối thượng',
+  'ultimate', 'manas', 'thăng hoa', 'chủng tộc'
+]);
+
+// Helper kiểm tra xem Log có phải là Cột mốc hoặc Sự kiện quan trọng hay không
 export const isLogMilestoneOrKeyStory = (log: GameLog): boolean => {
+  if (!log) return false;
   if (log.isMilestone || log.isStoryChange) return true;
   if (log.storyTitle || log.milestoneTitle) return true;
 
-  // Check if content or World Voice has milestone / awakening / evolution markers
-  const c = (log.content || '').toLowerCase();
-  const isKeywordMilestone =
-    c.includes('thức tỉnh') ||
-    c.includes('tiến hóa') ||
-    c.includes('thăng hoa') ||
-    c.includes('mở khóa') ||
-    c.includes('danh hiệu') ||
-    c.includes('cốt truyện') ||
-    c.includes('chương ') ||
-    c.includes('cột mốc') ||
-    c.includes('veldora') ||
-    c.includes('rimuru') ||
-    c.includes('chân ma vương') ||
-    c.includes('ma vương') ||
-    c.includes('quân đoàn') ||
-    c.includes('thảm họa orc') ||
-    c.includes('walpurgis') ||
-    c.includes('long vương');
+  const contentLower = (log.content || '').toLowerCase();
+  for (const kw of KEYWORD_SETS) {
+    if (contentLower.includes(kw)) return true;
+  }
 
-  const hasMilestoneWV = log.worldVoiceAnnouncements?.some(a => {
-    const al = a.toLowerCase();
-    return (
-      al.includes('thức tỉnh') ||
-      al.includes('tiến hóa') ||
-      al.includes('danh hiệu') ||
-      al.includes('thành tựu') ||
-      al.includes('tối thượng') ||
-      al.includes('ultimate') ||
-      al.includes('manas') ||
-      al.includes('thăng hoa') ||
-      al.includes('chủng tộc')
-    );
-  });
+  if (log.worldVoiceAnnouncements && log.worldVoiceAnnouncements.length > 0) {
+    for (const ann of log.worldVoiceAnnouncements) {
+      const annLower = ann.toLowerCase();
+      for (const wvk of WV_KEYWORD_SETS) {
+        if (annLower.includes(wvk)) return true;
+      }
+    }
+  }
 
-  return Boolean(isKeywordMilestone || hasMilestoneWV);
+  return false;
 };
 
-export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLogs }) => {
+export const GameLogPanel: React.FC<Props> = ({ logs = [], onClearOldLogs, onExportLogs }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
@@ -86,7 +79,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
     }
   };
 
-  // Counts for each category
+  // Tính toán số lượng cho từng thể loại
   const milestoneCount = useMemo(() => {
     return logs.filter(isLogMilestoneOrKeyStory).length;
   }, [logs]);
@@ -99,10 +92,9 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
     return logs.filter(l => l.type === 'world_voice' || (l.worldVoiceAnnouncements && l.worldVoiceAnnouncements.length > 0)).length;
   }, [logs]);
 
-  // Filtered Logs
+  // Bộ lọc Logs
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      // If user toggled hiding routine system notices
       if (hideRoutineNotices && log.type === 'system_notice') {
         return false;
       }
@@ -121,14 +113,14 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
     });
   }, [logs, filterMode, hideRoutineNotices]);
 
-  // Auto-scroll when logs change if auto-scroll is enabled
+  // Tự động cuộn xuống khi nhật ký có tin mới
   useEffect(() => {
     if (isAutoScroll) {
       scrollToBottom(true);
     }
   }, [filteredLogs, isAutoScroll]);
 
-  // Handle manual scrolling to detect when user scrolls away from bottom
+  // Kiểm tra thao tác cuộn thủ công của người dùng
   const handleScroll = () => {
     if (!containerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
@@ -156,7 +148,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
           </span>
         </div>
 
-        {/* Controls: Auto-scroll, Save Log, Clear Old Logs */}
+        {/* Controls: Auto-scroll, Export Log, Clear Old Logs */}
         <div className="flex items-center gap-1 font-mono text-[10px]">
           {/* Auto-scroll toggle */}
           <button
@@ -172,7 +164,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
             }`}
             title="Tự động cuộn xuống khi có diễn biến mới"
           >
-            <ArrowDown className={`w-2.5 h-2.5 ${isAutoScroll ? 'text-cyan-400 animate-bounce-short' : ''}`} />
+            <ArrowDown className={`w-2.5 h-2.5 ${isAutoScroll ? 'text-cyan-400 animate-bounce' : ''}`} />
             <span>AUTO</span>
           </button>
 
@@ -227,7 +219,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
       {/* Filter Tabs Bar */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 bg-slate-950/90 border border-slate-800/90 p-1 rounded-xs mb-2 text-[10px] font-mono">
         <div className="flex flex-wrap items-center gap-1">
-          {/* All logs */}
+          {/* Tất cả */}
           <button
             onClick={() => setFilterMode('all')}
             className={`px-2 py-1 rounded-xs transition-all flex items-center gap-1 cursor-pointer font-bold ${
@@ -240,7 +232,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
             <span>TẤT CẢ ({logs.length})</span>
           </button>
 
-          {/* Milestones & Key Story only */}
+          {/* Cột mốc quan trọng */}
           <button
             onClick={() => setFilterMode('milestones_only')}
             className={`px-2 py-1 rounded-xs transition-all flex items-center gap-1 cursor-pointer font-bold ${
@@ -263,7 +255,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
             )}
           </button>
 
-          {/* GM Narrative only */}
+          {/* Dẫn truyện GM */}
           <button
             onClick={() => setFilterMode('gm_narrative')}
             className={`px-2 py-1 rounded-xs transition-all flex items-center gap-1 cursor-pointer font-bold ${
@@ -277,7 +269,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
             <span>DẪN CHUYỆN ({narrativeCount})</span>
           </button>
 
-          {/* World Voice announcements only */}
+          {/* World Voice */}
           <button
             onClick={() => setFilterMode('world_voice')}
             className={`px-2 py-1 rounded-xs transition-all flex items-center gap-1 cursor-pointer font-bold ${
@@ -292,7 +284,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
           </button>
         </div>
 
-        {/* Quick Toggle: Hide Routine System Notices */}
+        {/* Ẩn / Hiện thông báo hệ thống thông thường */}
         <button
           onClick={() => setHideRoutineNotices(prev => !prev)}
           className={`px-2 py-1 rounded-xs border transition-all flex items-center gap-1 cursor-pointer ml-auto ${
@@ -316,7 +308,7 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
         </button>
       </div>
 
-      {/* Log Feed Container with internal scroll only */}
+      {/* Log Feed Container */}
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -348,8 +340,13 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
               return (
                 <div key={log.id} className="flex justify-end my-2">
                   <div className="max-w-[85%] bg-slate-800/50 border-l-2 border-cyan-400 border-y border-r border-slate-800 p-3 rounded-sm shadow-md">
-                    <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider mb-1">
-                      <User className="w-3 h-3 text-cyan-400" /> [ACTION_EXECUTED]
+                    <div className="flex items-center justify-between gap-1.5 text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider mb-1">
+                      <span className="flex items-center gap-1.5">
+                        <User className="w-3 h-3 text-cyan-400" /> [ACTION_EXECUTED]
+                      </span>
+                      {log.timestamp && (
+                        <span className="text-slate-500 text-[9px]">{log.timestamp}</span>
+                      )}
                     </div>
                     <p className="text-xs md:text-sm text-white font-medium leading-relaxed">
                       "{log.content}"
@@ -432,14 +429,14 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
         <div ref={bottomRef} />
       </div>
 
-      {/* Floating Scroll to Bottom Button if user scrolled up */}
+      {/* Floating Button: Cuộn xuống dưới cùng */}
       {showScrollBottomBtn && (
         <button
           onClick={() => {
             setIsAutoScroll(true);
             scrollToBottom(true);
           }}
-          className="absolute bottom-4 right-6 z-20 px-3 py-1.5 bg-cyan-950 border border-cyan-400 text-cyan-300 font-mono text-xs font-bold rounded-full shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5 animate-bounce-short cursor-pointer hover:bg-cyan-900 transition-all"
+          className="absolute bottom-4 right-6 z-20 px-3 py-1.5 bg-cyan-950 border border-cyan-400 text-cyan-300 font-mono text-xs font-bold rounded-full shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5 animate-bounce cursor-pointer hover:bg-cyan-900 transition-all"
         >
           <ArrowDown className="w-3.5 h-3.5" />
           <span>CUỘN XUỐNG MỚI NHẤT</span>
@@ -448,4 +445,3 @@ export const GameLogPanel: React.FC<Props> = ({ logs, onClearOldLogs, onExportLo
     </div>
   );
 };
-
