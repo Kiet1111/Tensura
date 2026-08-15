@@ -1,67 +1,117 @@
 import { GameLog, CombatLogEntry, CharacterStatus } from '../types';
 
+/**
+ * Định dạng dòng tiêu đề nhân vật an toàn
+ */
+const formatCharacterHeader = (character: CharacterStatus | null): string => {
+  if (!character) return 'Nhân vật: Vô danh';
+  const title = character.raceTitle?.trim() ? ` [${character.raceTitle.trim()}]` : '';
+  return `Nhân vật: ${character.name || 'Vô danh'}${title}`;
+};
+
+/**
+ * Xuất dữ liệu nhật ký ra tệp văn bản .txt và tự động kích hoạt tải xuống
+ */
 export const exportLogsToText = (
   character: CharacterStatus | null,
-  logs: GameLog[],
-  combatLogs: CombatLogEntry[]
-) => {
+  logs: GameLog[] = [],
+  combatLogs: CombatLogEntry[] = []
+): void => {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  const safeCombatLogs = Array.isArray(combatLogs) ? combatLogs : [];
+  
   const timestamp = new Date().toLocaleString('vi-VN');
-  let text = `==================================================\n`;
-  text += `TENSURA RPG - LỊCH SỬ NHẬT KÝ HÀNH TRÌNH\n`;
-  text += `Nhân vật: ${character ? character.name : 'Vô danh'} [${character?.raceTitle || ''}]\n`;
-  text += `Thời gian xuất: ${timestamp}\n`;
-  text += `==================================================\n\n`;
+  const lines: string[] = [];
 
-  text += `I. DIỄN BIẾN THẾ GIỚI & CỐT TRUYỆN (${logs.length} nhật ký)\n`;
-  text += `--------------------------------------------------\n`;
+  // Header section
+  lines.push('==================================================');
+  lines.push('TENSURA RPG - LỊCH SỬ NHẬT KÝ HÀNH TRÌNH');
+  lines.push(formatCharacterHeader(character));
+  lines.push(`Thời gian xuất: ${timestamp}`);
+  lines.push('==================================================\n');
 
-  logs.forEach((log, index) => {
-    if (log.type === 'player_action') {
-      text += `[${index + 1}] HÀNH ĐỘNG NGƯỜI CHƠI:\n`;
-      text += `"${log.content}"\n\n`;
-    } else if (log.type === 'world_voice') {
-      text += `[${index + 1}] GIỌNG NÓI THẾ GIỚI:\n`;
-      text += `${log.content}\n\n`;
-    } else if (log.type === 'gm_narrative') {
-      text += `[${index + 1}] DIỄN BIẾN (GAME MASTER):\n`;
-      text += `${log.content}\n`;
-      if (log.worldVoiceAnnouncements && log.worldVoiceAnnouncements.length > 0) {
-        log.worldVoiceAnnouncements.forEach(wa => {
-          text += `  -> GIỌNG NÓI THẾ GIỚI: ${wa}\n`;
-        });
-      }
-      text += `\n`;
-    } else {
-      text += `[${index + 1}] THÔNG BÁO HỆ THỐNG:\n`;
-      text += `${log.content}\n\n`;
+  // Section 1: World & Story Logs
+  lines.push(`I. DIỄN BIẾN THẾ GIỚI & CỐT TRUYỆN (${safeLogs.length} nhật ký)`);
+  lines.push('--------------------------------------------------');
+
+  safeLogs.forEach((log, index) => {
+    const idxStr = `[${index + 1}]`;
+    switch (log.type) {
+      case 'player_action':
+        lines.push(`${idxStr} HÀNH ĐỘNG NGƯỜI CHƠI:`);
+        lines.push(`"${log.content || ''}"\n`);
+        break;
+
+      case 'world_voice':
+        lines.push(`${idxStr} GIỌNG NÓI THẾ GIỚI:`);
+        lines.push(`${log.content || ''}\n`);
+        break;
+
+      case 'gm_narrative':
+        lines.push(`${idxStr} DIỄN BIẾN (GAME MASTER):`);
+        lines.push(`${log.content || ''}`);
+        if (Array.isArray(log.worldVoiceAnnouncements) && log.worldVoiceAnnouncements.length > 0) {
+          log.worldVoiceAnnouncements.forEach((wa) => {
+            lines.push(`  -> GIỌNG NÓI THẾ GIỚI: ${wa}`);
+          });
+        }
+        lines.push(''); // Thêm dòng trống tạo khoảng cách
+        break;
+
+      default:
+        lines.push(`${idxStr} THÔNG BÁO HỆ THỐNG:`);
+        lines.push(`${log.content || ''}\n`);
+        break;
     }
   });
 
-  text += `\nII. NHẬT KÝ CHIẾN ĐẤU & KỸ NĂNG (${combatLogs.length} nhật ký)\n`;
-  text += `--------------------------------------------------\n`;
+  // Section 2: Combat & Skill Logs
+  lines.push(`\nII. NHẬT KÝ CHIẾN ĐẤU & KỸ NĂNG (${safeCombatLogs.length} nhật ký)`);
+  lines.push('--------------------------------------------------');
 
-  combatLogs.forEach((cLog, index) => {
-    text += `[Turn ${cLog.turn}] ${cLog.timestamp || ''} - ${cLog.actionName}\n`;
-    if (cLog.skillUsed) text += `  • Kỹ năng sử dụng: [${cLog.skillUsed}]\n`;
-    if (cLog.damageDealt) text += `  • Sát thương gây ra: ${cLog.damageDealt} HP\n`;
-    if (cLog.damageTaken) text += `  • Sát thương nhận vào: ${cLog.damageTaken} HP\n`;
-    if (cLog.hpChange) text += `  • Hồi phục HP: +${cLog.hpChange} HP\n`;
-    if (cLog.mpChange) text += `  • Biến động MP: ${cLog.mpChange > 0 ? '+' : ''}${cLog.mpChange} MP\n`;
-    if (cLog.effect) text += `  • Hiệu ứng: ${cLog.effect}\n`;
-    text += `\n`;
+  safeCombatLogs.forEach((cLog) => {
+    const timeStr = cLog.timestamp ? ` ${cLog.timestamp}` : '';
+    lines.push(`[Turn ${cLog.turn || 0}]${timeStr} - ${cLog.actionName || 'Hành động'}`);
+
+    if (cLog.skillUsed) lines.push(`  • Kỹ năng sử dụng: [${cLog.skillUsed}]`);
+    if (typeof cLog.damageDealt === 'number' && cLog.damageDealt > 0) {
+      lines.push(`  • Sát thương gây ra: ${cLog.damageDealt} HP`);
+    }
+    if (typeof cLog.damageTaken === 'number' && cLog.damageTaken > 0) {
+      lines.push(`  • Sát thương nhận vào: ${cLog.damageTaken} HP`);
+    }
+    if (typeof cLog.hpChange === 'number' && cLog.hpChange > 0) {
+      lines.push(`  • Hồi phục HP: +${cLog.hpChange} HP`);
+    }
+    if (typeof cLog.mpChange === 'number' && cLog.mpChange !== 0) {
+      const prefix = cLog.mpChange > 0 ? '+' : '';
+      lines.push(`  • Biến động MP: ${prefix}${cLog.mpChange} MP`);
+    }
+    if (cLog.effect) lines.push(`  • Hiệu ứng: ${cLog.effect}`);
+    
+    lines.push(''); // Dòng trống ngăn cách các turn
   });
 
-  text += `==================================================\n`;
-  text += `HẾT TỆP TRÍCH XUẤT NHẬT KÝ TENSURA RPG\n`;
+  lines.push('==================================================');
+  lines.push('HẾT TỆP TRÍCH XUẤT NHẬT KÝ TENSURA RPG');
 
+  // Trigger Download Safe Pattern
+  const textOutput = lines.join('\n');
   const filename = `tensura_rpg_logs_${Date.now()}.txt`;
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const blob = new Blob([textOutput], { type: 'text/plain;charset=utf-8' });
+  
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.style.display = 'none';
+  
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+
+  // Đặt timeout giải phóng bộ nhớ để tránh bị chặn download trên trình duyệt di động
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
 };
