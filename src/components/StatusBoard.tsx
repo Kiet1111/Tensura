@@ -1,6 +1,31 @@
 import React, { useState, useMemo } from 'react';
-import { CharacterStatus, InventoryItem, SkillCategory, CharacterTitle, Skill } from '../types';
-import { Heart, Zap, Wand2, Package, Home, Sparkles, Shield, Leaf, Gem, Skull, FlaskConical, Swords, Box, BookOpen, Layers, Award, Crown, CheckCircle2, Lock, ShieldAlert, ChevronRight, Search, X, SlidersHorizontal, Dna, GitBranch, Compass, ArrowUpDown, TrendingUp } from 'lucide-react';
+import { CharacterStatus, InventoryItem, SkillCategory, Skill } from '../types';
+import {
+  Heart,
+  Zap,
+  Wand2,
+  Package,
+  Sparkles,
+  Shield,
+  Leaf,
+  Gem,
+  Skull,
+  FlaskConical,
+  Swords,
+  BookOpen,
+  Layers,
+  Award,
+  Crown,
+  CheckCircle2,
+  Lock,
+  ChevronRight,
+  Search,
+  X,
+  Dna,
+  GitBranch,
+  ArrowUpDown,
+  TrendingUp
+} from 'lucide-react';
 import { SkillLibraryModal } from './SkillLibraryModal';
 import { SkillProgressBar } from './SkillProgressBar';
 import { getSkillClassification, getEnrichedSkillDetails, getSkillEvolutionPotential, TENSURA_CATEGORY_METADATA } from '../utils/skillUtils';
@@ -49,10 +74,15 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
   const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
-  const titles = (character.titles && character.titles.length > 0) ? character.titles : getInitialTitles();
-  const titleTotals = calculateTotalTitleBonuses(titles);
+  // Safe Fallbacks tránh crash app khi dữ liệu bị undefined
+  const characterSkills = character?.skills || [];
+  const characterInventory = character?.inventory || [];
+  const characterTitles = (character?.titles && character.titles.length > 0) ? character.titles : getInitialTitles();
+  const territory = character?.territory || { name: 'Chưa rõ', level: 1, levelTitle: 'Lãnh địa sơ khai', population: 0, buildings: [] };
 
-  const filteredSkills = (character.skills || []).filter(rawSkill => {
+  const titleTotals = calculateTotalTitleBonuses(characterTitles);
+
+  const filteredSkills = characterSkills.filter(rawSkill => {
     const skill = getEnrichedSkillDetails(rawSkill);
     const cls = getSkillClassification(skill);
     const matchesSearch =
@@ -66,7 +96,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  // Group filtered skills by hierarchical Tensura tiers (Common -> Extra -> Unique -> Ultimate -> Manas)
+  // Group filtered skills by hierarchical Tensura tiers
   const groupedSkills = useMemo(() => {
     const tierList = tierSortDirection === 'asc' ? ASCENDING_TIER_ORDER : DESCENDING_TIER_ORDER;
     const groups: { category: SkillCategory; skills: Skill[] }[] = [];
@@ -82,13 +112,13 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
   // Count skills per category in the full character repertoire
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<SkillCategory, number>> = {};
-    for (const s of character.skills || []) {
+    for (const s of characterSkills) {
       counts[s.category] = (counts[s.category] || 0) + 1;
     }
     return counts;
-  }, [character.skills]);
+  }, [characterSkills]);
 
-  const filteredTitles = titles.filter(t => {
+  const filteredTitles = characterTitles.filter(t => {
     if (titleFilter === 'unlocked') return t.unlocked;
     if (titleFilter === 'locked') return !t.unlocked;
     return true;
@@ -304,8 +334,8 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
     return <Package className="w-4 h-4 text-slate-400 shrink-0" />;
   };
 
-  const hpPercent = Math.min(100, Math.max(0, Math.round((character.hp / character.maxHp) * 100)));
-  const mpPercent = Math.min(100, Math.max(0, Math.round((character.mp / character.maxMp) * 100)));
+  const hpPercent = Math.min(100, Math.max(0, Math.round((character.hp / (character.maxHp || 1)) * 100)));
+  const mpPercent = Math.min(100, Math.max(0, Math.round((character.mp / (character.maxMp || 1)) * 100)));
 
   const content = (
     <div className="h-full flex flex-col bg-slate-900/85 border border-cyan-500/25 p-3 rounded-sm shadow-2xl text-slate-200 overflow-hidden">
@@ -316,7 +346,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
           STATUS WINDOW
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
         </h2>
-        
+
         <div className="flex items-center justify-between pt-1">
           <div className="min-w-0 truncate">
             <h3 className="text-base font-bold text-white tracking-wide truncate">{character.name}</h3>
@@ -378,7 +408,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          KỸ NĂNG ({character.skills.length})
+          KỸ NĂNG ({characterSkills.length})
         </button>
 
         <button
@@ -413,7 +443,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          TÚI ĐỒ ({character.inventory.length})
+          TÚI ĐỒ ({characterInventory.length})
         </button>
 
         <button
@@ -428,26 +458,26 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
         </button>
       </div>
 
-      {/* Tab Content with internal vertical scrolling */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 pt-2">
+      {/* Tab Content duy nhất một khung cuộn dọc */}
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 pt-2 space-y-3">
         {activeTab === 'skills' && (
           <div className="space-y-2.5">
             {/* Skill Library Trigger Banner */}
             <button
               onClick={() => setIsSkillLibraryOpen(true)}
-              className="w-full py-2 px-3 bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 font-mono text-xs font-bold uppercase tracking-wider rounded-xs flex items-center justify-between transition-all group shadow-[0_0_12px_rgba(6,182,212,0.15)] cursor-pointer"
+              className="w-full py-2 px-3 bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 font-mono text-xs font-bold uppercase tracking-wider rounded-sm flex items-center justify-between transition-all group shadow-[0_0_12px_rgba(6,182,212,0.15)] cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
                 <span>THƯ VIỆN KỸ NĂNG CHI TIẾT</span>
               </div>
-              <span className="text-[10px] bg-cyan-900/90 border border-cyan-400/60 px-1.5 py-0.5 rounded-xs font-black">
-                {character.skills.length} KỸ NĂNG
+              <span className="text-[10px] bg-cyan-900/90 border border-cyan-400/60 px-1.5 py-0.5 rounded-sm font-black">
+                {characterSkills.length} KỸ NĂNG
               </span>
             </button>
 
             {/* Quick Search & Tensura Tier / Type Filter Toolbar */}
-            <div className="space-y-2 p-2.5 bg-slate-905/70 border border-slate-800 rounded-xs">
+            <div className="space-y-2 p-2.5 bg-slate-950/70 border border-slate-800 rounded-sm">
               {/* Search Box */}
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -456,7 +486,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                   value={skillSearchTerm}
                   onChange={(e) => setSkillSearchTerm(e.target.value)}
                   placeholder="Tìm theo tên, Kanji (捕食者, 智慧之王), Lord Concept..."
-                  className="w-full pl-8 pr-7 py-1.5 bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors rounded-xs"
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors rounded-sm"
                 />
                 {skillSearchTerm && (
                   <button
@@ -478,7 +508,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                   </span>
                   <button
                     onClick={() => setTierSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                    className="flex items-center gap-1 text-[9px] text-cyan-400 hover:text-cyan-300 bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-500/30 px-1.5 py-0.5 rounded-xs transition-colors cursor-pointer"
+                    className="flex items-center gap-1 text-[9px] text-cyan-400 hover:text-cyan-300 bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-500/30 px-1.5 py-0.5 rounded-sm transition-colors cursor-pointer"
                     title="Chuyển đổi hướng sắp xếp thứ bậc kỹ năng"
                   >
                     <ArrowUpDown className="w-2.5 h-2.5" />
@@ -488,13 +518,13 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                 <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar pb-1 font-mono text-[10px]">
                   <button
                     onClick={() => setSkillCategoryFilter('All')}
-                    className={`px-2 py-0.5 font-bold uppercase transition-all rounded-xs whitespace-nowrap cursor-pointer ${
+                    className={`px-2 py-0.5 font-bold uppercase transition-all rounded-sm whitespace-nowrap cursor-pointer ${
                       skillCategoryFilter === 'All'
                         ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/60 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
                         : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
                     }`}
                   >
-                    Tất cả ({character.skills.length})
+                    Tất cả ({characterSkills.length})
                   </button>
                   {(tierSortDirection === 'asc' ? ASCENDING_TIER_ORDER : DESCENDING_TIER_ORDER).filter(cat => (categoryCounts[cat] || 0) > 0).map((cat) => {
                     const meta = TENSURA_CATEGORY_METADATA[cat];
@@ -504,9 +534,9 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                       <button
                         key={cat}
                         onClick={() => setSkillCategoryFilter(cat)}
-                        className={`px-2 py-0.5 font-bold uppercase transition-all rounded-xs whitespace-nowrap cursor-pointer flex items-center gap-1 border ${
+                        className={`px-2 py-0.5 font-bold uppercase transition-all rounded-sm whitespace-nowrap cursor-pointer flex items-center gap-1 border ${
                           isSelected
-                            ? `${meta.themeColor.badge} border-cyan-400 shadow-xs`
+                            ? `${meta.themeColor.badge} border-cyan-400 shadow-sm`
                             : 'bg-slate-950 text-slate-400 hover:text-slate-200 border-slate-800 hover:bg-slate-900'
                         }`}
                       >
@@ -526,7 +556,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                     <button
                       key={t}
                       onClick={() => setSkillTypeFilter(t)}
-                      className={`px-2 py-0.5 font-bold uppercase transition-all rounded-xs cursor-pointer ${
+                      className={`px-2 py-0.5 font-bold uppercase transition-all rounded-sm cursor-pointer ${
                         skillTypeFilter === t
                           ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/60'
                           : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800 hover:bg-slate-900'
@@ -537,15 +567,15 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                   ))}
                 </div>
                 <span className="text-slate-500 font-mono text-[10px]">
-                  Hiển thị: {filteredSkills.length}/{character.skills.length}
+                  Hiển thị: {filteredSkills.length}/{characterSkills.length}
                 </span>
               </div>
             </div>
 
-            {/* Hierarchical Grouped Skills List (Tensura Tiers) */}
-            <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+            {/* Hierarchical Grouped Skills List */}
+            <div className="space-y-3.5">
               {groupedSkills.length === 0 ? (
-                <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-xs text-center space-y-1 font-mono">
+                <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-sm text-center space-y-1 font-mono">
                   <p className="text-xs text-slate-400">Không tìm thấy kỹ năng phù hợp trong phân cấp Tensura.</p>
                   <p className="text-[10px] text-slate-600">Thử thay đổi từ khóa hoặc bộ lọc phân cấp / loại kỹ năng.</p>
                 </div>
@@ -555,7 +585,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                   return (
                     <div
                       key={group.category}
-                      className={`border ${headerInfo.border} bg-slate-950/90 rounded-xs overflow-hidden shadow-xs`}
+                      className={`border ${headerInfo.border} bg-slate-950/90 rounded-sm overflow-hidden shadow-sm`}
                     >
                       {/* Tier Group Header */}
                       <div className={`px-2.5 py-1.5 ${headerInfo.headerBg} border-b ${headerInfo.border} flex items-center justify-between`}>
@@ -568,10 +598,10 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 font-mono text-[9px] shrink-0">
-                          <span className={`px-1.5 py-0.2 rounded-xs font-bold border ${headerInfo.badge}`}>
+                          <span className={`px-1.5 py-0.2 rounded-sm font-bold border ${headerInfo.badge}`}>
                             {headerInfo.rank}
                           </span>
-                          <span className="px-1.5 py-0.2 bg-slate-900/90 border border-slate-700 text-slate-300 font-bold rounded-xs">
+                          <span className="px-1.5 py-0.2 bg-slate-900/90 border border-slate-700 text-slate-300 font-bold rounded-sm">
                             {group.skills.length}
                           </span>
                         </div>
@@ -590,7 +620,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                               title={evolutionHint ? `${skill.name} • ${evolutionHint}` : skill.name}
                               className={`p-2.5 bg-slate-900/80 border-l-2 ${getCategoryBadge(
                                 skill.category
-                              )} border-y border-r border-slate-800 space-y-1.5 cursor-pointer hover:border-slate-700 transition-colors group rounded-xs`}
+                              )} border-y border-r border-slate-800 space-y-1.5 cursor-pointer hover:border-slate-700 transition-colors group rounded-sm`}
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex flex-col">
@@ -606,14 +636,14 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                                     </span>
                                   )}
                                 </div>
-                                <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 border rounded-xs font-bold shrink-0 ${getCategoryBadge(skill.category)}`}>
+                                <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 border rounded-sm font-bold shrink-0 ${getCategoryBadge(skill.category)}`}>
                                   {skill.category}
                                 </span>
                               </div>
 
                               {/* Classification & Attribute Badges */}
                               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[9px]">
-                                <span className={`px-1.5 py-0.2 rounded-xs font-bold border ${
+                                <span className={`px-1.5 py-0.2 rounded-sm font-bold border ${
                                   cls.type === 'Chủ động'
                                     ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
                                     : 'bg-blue-950/60 border-blue-500/40 text-blue-300'
@@ -621,7 +651,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                                   {cls.type === 'Chủ động' ? '⚡ Chủ Động' : '🛡️ Bị Động'}
                                 </span>
 
-                                <span className={`px-1.5 py-0.2 rounded-xs font-bold border ${
+                                <span className={`px-1.5 py-0.2 rounded-sm font-bold border ${
                                   cls.attribute === 'Quy luật'
                                     ? 'bg-purple-950/60 border-purple-400 text-purple-300'
                                     : cls.attribute === 'Tấn công'
@@ -636,14 +666,14 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                                 </span>
 
                                 {skill.subSkills && skill.subSkills.length > 0 && (
-                                  <span className="px-1.5 py-0.2 rounded-xs font-bold border bg-indigo-950/60 border-indigo-400 text-indigo-300 flex items-center gap-1">
+                                  <span className="px-1.5 py-0.2 rounded-sm font-bold border bg-indigo-950/60 border-indigo-400 text-indigo-300 flex items-center gap-1">
                                     <GitBranch className="w-2.5 h-2.5 text-indigo-400" />
                                     {skill.subSkills.length} Sub-skills
                                   </span>
                                 )}
 
                                 {cls.type === 'Chủ động' && (
-                                  <span className="px-1.5 py-0.2 rounded-xs font-bold border bg-cyan-950/50 border-cyan-500/30 text-cyan-300 ml-auto">
+                                  <span className="px-1.5 py-0.2 rounded-sm font-bold border bg-cyan-950/50 border-cyan-500/30 text-cyan-300 ml-auto">
                                     {cls.mpCost > 0 ? `${cls.mpCost} MP` : '0 MP'}
                                   </span>
                                 )}
@@ -653,7 +683,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
 
                               {/* Evolution Potential Recommendation Box */}
                               {evolutionHint && (
-                                <div className="p-1.5 bg-gradient-to-r from-cyan-950/50 via-slate-950/80 to-slate-950/60 border border-cyan-500/30 rounded-xs flex items-start gap-1.5 font-mono text-[10px] text-cyan-300">
+                                <div className="p-1.5 bg-gradient-to-r from-cyan-950/50 via-slate-950/80 to-slate-950/60 border border-cyan-500/30 rounded-sm flex items-start gap-1.5 font-mono text-[10px] text-cyan-300">
                                   <TrendingUp className="w-3 h-3 text-cyan-400 shrink-0 mt-0.5" />
                                   <div className="leading-snug">
                                     <span className="font-bold text-cyan-200 uppercase tracking-wider">Tiềm Năng Tiến Hóa: </span>
@@ -688,13 +718,13 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
           return (
             <div className="space-y-4 font-mono">
               {/* Dynamic Evolution Mechanism Banner */}
-              <div className="p-3 bg-gradient-to-r from-rose-950/40 via-purple-950/40 to-slate-950 border border-rose-500/50 rounded-xs space-y-2 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+              <div className="p-3 bg-gradient-to-r from-rose-950/40 via-purple-950/40 to-slate-950 border border-rose-500/50 rounded-sm space-y-2 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
                 <div className="flex items-center justify-between border-b border-rose-500/30 pb-1.5 text-xs">
                   <div className="flex items-center gap-2 font-bold text-rose-300">
                     <Dna className="w-4 h-4 text-rose-400 animate-pulse" />
                     <span>HỆ THỐNG TIẾN HÓA THÍCH ỨNG (DYNAMIC EVOLUTION)</span>
                   </div>
-                  <span className="text-[10px] bg-rose-950 border border-rose-400/60 px-2 py-0.5 text-rose-200 font-bold uppercase rounded-xs">
+                  <span className="text-[10px] bg-rose-950 border border-rose-400/60 px-2 py-0.5 text-rose-200 font-bold uppercase rounded-sm">
                     GIAI ĐOẠN 0{character.evolutionStage || 1}
                   </span>
                 </div>
@@ -704,7 +734,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                 </p>
 
                 {/* Dominance vs Balance Status Alert */}
-                <div className={`p-2 rounded-xs border text-[11px] font-mono flex items-start gap-2 ${
+                <div className={`p-2 rounded-sm border text-[11px] font-mono flex items-start gap-2 ${
                   factorEval.isDominant
                     ? 'bg-rose-950/60 border-rose-500/70 text-rose-200'
                     : 'bg-cyan-950/60 border-cyan-500/70 text-cyan-200'
@@ -745,7 +775,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                     return (
                       <div
                         key={key}
-                        className={`p-2.5 bg-slate-950 border rounded-xs space-y-1.5 ${
+                        className={`p-2.5 bg-slate-950 border rounded-sm space-y-1.5 ${
                           isLeading ? 'border-amber-400/80 bg-slate-900/80 shadow-[0_0_10px_rgba(251,191,36,0.15)]' : meta.borderColor
                         }`}
                       >
@@ -788,15 +818,15 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                     <span className="text-[10px] text-slate-400">{nextBranches.length} Nhánh</span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                  <div className="grid grid-cols-1 gap-2">
                     {nextBranches.map((branch) => (
                       <div
                         key={branch.id}
-                        className="p-2.5 bg-slate-950/90 border border-slate-800 hover:border-cyan-500/60 rounded-xs space-y-1.5 transition-colors"
+                        className="p-2.5 bg-slate-950/90 border border-slate-800 hover:border-cyan-500/60 rounded-sm space-y-1.5 transition-colors"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg p-1 bg-slate-900 border border-slate-800 rounded-xs">
+                            <span className="text-lg p-1 bg-slate-900 border border-slate-800 rounded-sm">
                               {branch.icon}
                             </span>
                             <div>
@@ -818,11 +848,13 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                           {branch.description}
                         </p>
 
-                        {branch.grantedSkills.length > 0 && (
-                          <div className="text-[10px] text-amber-300 flex items-center gap-1">
+                        {branch.grantedSkills && branch.grantedSkills.length > 0 && (
+                          <div className="text-[10px] text-amber-300 flex items-center gap-1 flex-wrap">
                             <span>Thức tỉnh:</span>
-                            {branch.grantedSkills.map(s => (
-                              <strong key={s.name} className="text-cyan-300 font-mono">[{s.name}]</strong>
+                            {branch.grantedSkills.map((s, i) => (
+                              <strong key={typeof s === 'string' ? s : s.name || i} className="text-cyan-300 font-mono">
+                                [{typeof s === 'string' ? s : s.name}]
+                              </strong>
                             ))}
                           </div>
                         )}
@@ -842,22 +874,22 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                   <span className="text-[10px] text-slate-400 font-mono">Thích ứng theo hành động</span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-                  {character.skills.map((rawSkill) => {
+                <div className="grid grid-cols-1 gap-2">
+                  {characterSkills.map((rawSkill) => {
                     const skill = getEnrichedSkillDetails(rawSkill);
                     const hint = getSkillEvolutionPotential(skill);
                     const isMaxLevel = (skill.level || 1) >= 10;
                     return (
                       <div
                         key={skill.id || skill.name}
-                        className={`p-2.5 bg-slate-950/90 border rounded-xs space-y-1.5 transition-colors ${
+                        className={`p-2.5 bg-slate-950/90 border rounded-sm space-y-1.5 transition-colors ${
                           isMaxLevel ? 'border-purple-500/70 shadow-[0_0_10px_rgba(168,85,247,0.15)]' : 'border-slate-800'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-white font-mono">[{skill.name}]</span>
-                            <span className={`text-[9px] px-1 py-0.2 rounded-xs font-mono uppercase font-bold ${getCategoryBadge(skill.category)}`}>
+                            <span className={`text-[9px] px-1 py-0.2 rounded-sm font-mono uppercase font-bold ${getCategoryBadge(skill.category)}`}>
                               {skill.category}
                             </span>
                           </div>
@@ -879,7 +911,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
 
               {/* Evolution History if any */}
               {character.evolutionHistory && character.evolutionHistory.length > 0 && (
-                <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xs space-y-1.5 text-xs font-mono">
+                <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-sm space-y-1.5 text-xs font-mono">
                   <span className="text-slate-400 font-bold block text-[10px] uppercase">
                     📜 LỊCH SỬ THĂNG HOA CHỦNG TỘC:
                   </span>
@@ -900,7 +932,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
         {activeTab === 'titles' && (
           <div className="space-y-3 font-mono">
             {/* Total Bonus Stats Banner */}
-            <div className="p-2.5 bg-amber-950/40 border border-amber-500/50 rounded-xs space-y-2 shadow-[0_0_15px_rgba(245,158,11,0.12)]">
+            <div className="p-2.5 bg-amber-950/40 border border-amber-500/50 rounded-sm space-y-2 shadow-[0_0_15px_rgba(245,158,11,0.12)]">
               <div className="flex items-center justify-between border-b border-amber-500/30 pb-1 text-xs">
                 <div className="flex items-center gap-1.5 font-bold text-amber-300">
                   <Crown className="w-4 h-4 text-amber-400 animate-pulse" />
@@ -912,23 +944,23 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] pt-0.5">
-                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-xs flex items-center justify-between">
+                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-sm flex items-center justify-between">
                   <span className="text-slate-400 text-[10px]">💚 HP Thưởng:</span>
                   <span className="font-bold text-emerald-400">+{titleTotals.hpBonus}</span>
                 </div>
-                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-xs flex items-center justify-between">
+                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-sm flex items-center justify-between">
                   <span className="text-slate-400 text-[10px]">⚡ MP Thưởng:</span>
                   <span className="font-bold text-cyan-400">+{titleTotals.mpBonus}</span>
                 </div>
-                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-xs flex items-center justify-between">
+                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-sm flex items-center justify-between">
                   <span className="text-slate-400 text-[10px]">⚔️ Tấn Công:</span>
                   <span className="font-bold text-rose-400">+{titleTotals.atkBonus}</span>
                 </div>
-                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-xs flex items-center justify-between">
+                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-sm flex items-center justify-between">
                   <span className="text-slate-400 text-[10px]">🛡️ Chống Chịu:</span>
                   <span className="font-bold text-amber-300">+{titleTotals.defBonus}</span>
                 </div>
-                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-xs flex items-center justify-between col-span-2 sm:col-span-1">
+                <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-sm flex items-center justify-between col-span-2 sm:col-span-1">
                   <span className="text-slate-400 text-[10px]">✨ Ma Lực:</span>
                   <span className="font-bold text-purple-300">+{titleTotals.magicBonus}</span>
                 </div>
@@ -939,7 +971,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
             <div className="flex items-center gap-1.5 text-[10px]">
               <button
                 onClick={() => setTitleFilter('all')}
-                className={`px-2 py-0.5 border rounded-xs font-bold transition-all ${
+                className={`px-2 py-0.5 border rounded-sm font-bold transition-all ${
                   titleFilter === 'all'
                     ? 'bg-amber-950 border-amber-400 text-amber-300'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -949,7 +981,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
               </button>
               <button
                 onClick={() => setTitleFilter('unlocked')}
-                className={`px-2 py-0.5 border rounded-xs font-bold transition-all ${
+                className={`px-2 py-0.5 border rounded-sm font-bold transition-all ${
                   titleFilter === 'unlocked'
                     ? 'bg-emerald-950 border-emerald-400 text-emerald-300'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -959,7 +991,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
               </button>
               <button
                 onClick={() => setTitleFilter('locked')}
-                className={`px-2 py-0.5 border rounded-xs font-bold transition-all ${
+                className={`px-2 py-0.5 border rounded-sm font-bold transition-all ${
                   titleFilter === 'locked'
                     ? 'bg-rose-950 border-rose-400 text-rose-300'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -970,7 +1002,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
             </div>
 
             {/* Titles List */}
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-2">
               {filteredTitles.length === 0 ? (
                 <p className="text-xs text-slate-500 py-4 text-center">Không tìm thấy danh hiệu tương ứng.</p>
               ) : (
@@ -979,7 +1011,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                   return (
                     <div
                       key={title.id}
-                      className={`p-2.5 rounded-xs border transition-all space-y-1.5 ${
+                      className={`p-2.5 rounded-sm border transition-all space-y-1.5 ${
                         title.unlocked
                           ? isEquipped
                             ? 'bg-amber-950/30 border-amber-400/80 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
@@ -994,7 +1026,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                             {title.name}
                           </span>
                           {isEquipped && (
-                            <span className="px-1.5 py-0.2 bg-amber-950 border border-amber-400 text-amber-300 text-[9px] font-black uppercase rounded-xs">
+                            <span className="px-1.5 py-0.2 bg-amber-950 border border-amber-400 text-amber-300 text-[9px] font-black uppercase rounded-sm">
                               👑 ĐANG TRANG BỊ
                             </span>
                           )}
@@ -1006,7 +1038,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                               {title.category}
                             </span>
                           )}
-                          <span className={`text-[9px] px-1.5 py-0.2 font-bold uppercase rounded-xs border ${getRarityBadgeStyle(title.rarity)}`}>
+                          <span className={`text-[9px] px-1.5 py-0.2 font-bold uppercase rounded-sm border ${getRarityBadgeStyle(title.rarity)}`}>
                             {title.rarity}
                           </span>
                         </div>
@@ -1036,8 +1068,8 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                               </span>
                             ) : (
                               <button
-                                onClick={() => onEquipTitle && onEquipTitle(title.id)}
-                                className="px-2 py-0.5 bg-amber-950 hover:bg-amber-900 border border-amber-400/80 text-amber-300 text-[10px] font-bold uppercase rounded-xs transition-all flex items-center gap-1"
+                                onClick={() => onEquipTitle?.(title.id)}
+                                className="px-2 py-0.5 bg-amber-950 hover:bg-amber-900 border border-amber-400/80 text-amber-300 text-[10px] font-bold uppercase rounded-sm transition-all flex items-center gap-1 cursor-pointer"
                               >
                                 <span>TRANG BỊ</span>
                                 <ChevronRight className="w-3 h-3" />
@@ -1060,33 +1092,33 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
 
         {activeTab === 'inventory' && (
           <div className="space-y-3 font-mono">
-            {character.inventory.length === 0 ? (
+            {characterInventory.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Túi đồ rỗng.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
-                {character.inventory.map(item => (
+              <div className="grid grid-cols-1 gap-2">
+                {characterInventory.map(item => (
                   <div
                     key={item.id}
                     onMouseEnter={(e) => handleItemMouseEnter(item, e)}
                     onMouseLeave={handleItemMouseLeave}
-                    className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-800 text-xs hover:border-cyan-500/60 hover:bg-slate-900/80 transition-all rounded-xs cursor-pointer group relative"
+                    className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-800 text-xs hover:border-cyan-500/60 hover:bg-slate-900/80 transition-all rounded-sm cursor-pointer group relative"
                   >
                     <div className="flex items-center gap-2.5">
                       {/* Item Icon with glow on hover */}
-                      <div className="p-2 bg-slate-900 border border-slate-800 group-hover:border-cyan-400 group-hover:bg-cyan-950/40 rounded-sm shrink-0 flex items-center justify-center transition-all shadow-xs">
+                      <div className="p-2 bg-slate-900 border border-slate-800 group-hover:border-cyan-400 group-hover:bg-cyan-950/40 rounded-sm shrink-0 flex items-center justify-center transition-all shadow-sm">
                         {getItemIcon(item)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">{item.name}</p>
-                          <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 bg-slate-900 border border-slate-800 text-cyan-400/80 rounded-xs">
+                          <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 bg-slate-900 border border-slate-800 text-cyan-400/80 rounded-sm">
                             {item.type}
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-400 font-sans mt-0.5 line-clamp-1">{item.description}</p>
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold text-[11px] shrink-0 ml-2 shadow-xs">
+                    <span className="px-2 py-0.5 bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold text-[11px] shrink-0 ml-2 shadow-sm">
                       x{item.quantity}
                     </span>
                   </div>
@@ -1096,13 +1128,13 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
 
             {/* Bottom Live Item Usage Banner */}
             {hoveredItem ? (
-              <div className="p-2.5 bg-slate-950 border border-cyan-500/60 rounded-xs text-[11px] font-mono space-y-1 animate-fade-in shadow-[0_0_15px_rgba(34,211,238,0.15)]">
+              <div className="p-2.5 bg-slate-950 border border-cyan-500/60 rounded-sm text-[11px] font-mono space-y-1 animate-fade-in shadow-[0_0_15px_rgba(34,211,238,0.15)]">
                 <div className="flex items-center justify-between text-cyan-300 font-bold text-xs border-b border-slate-800 pb-1">
                   <span className="flex items-center gap-1.5">
                     {getItemIcon(hoveredItem)}
                     <span>{hoveredItem.name}</span>
                   </span>
-                  <span className="text-[10px] text-amber-300 font-normal px-1.5 py-0.2 bg-amber-950 border border-amber-500/40 rounded-xs">
+                  <span className="text-[10px] text-amber-300 font-normal px-1.5 py-0.2 bg-amber-950 border border-amber-500/40 rounded-sm">
                     {getItemTypeLabel(hoveredItem.type)}
                   </span>
                 </div>
@@ -1115,7 +1147,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
                 </div>
               </div>
             ) : (
-              <div className="p-2 bg-slate-950/60 border border-slate-800/80 rounded-xs text-[10px] text-slate-500 font-mono text-center">
+              <div className="p-2 bg-slate-950/60 border border-slate-800/80 rounded-sm text-[10px] text-slate-500 font-mono text-center">
                 💬 Di chuột vào biểu tượng/vật phẩm để xem mô tả công dụng chi tiết.
               </div>
             )}
@@ -1123,24 +1155,24 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
         )}
 
         {activeTab === 'territory' && (
-          <div className="p-3 bg-slate-950 border border-slate-800 space-y-2.5 text-xs font-mono">
+          <div className="p-3 bg-slate-950 border border-slate-800 space-y-2.5 text-xs font-mono rounded-sm">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
               <span className="text-slate-500 uppercase">Tên Lãnh Địa:</span>
-              <span className="font-bold text-cyan-300">{character.territory.name}</span>
+              <span className="font-bold text-cyan-300">{territory.name}</span>
             </div>
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
               <span className="text-slate-500 uppercase">Cấp Lãnh Địa:</span>
-              <span className="font-bold text-amber-300">Cấp {character.territory.level} - {character.territory.levelTitle}</span>
+              <span className="font-bold text-amber-300">Cấp {territory.level} - {territory.levelTitle}</span>
             </div>
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
               <span className="text-slate-500 uppercase">Dân Số:</span>
-              <span className="font-bold text-emerald-400">{character.territory.population} Cư dân</span>
+              <span className="font-bold text-emerald-400">{territory.population} Cư dân</span>
             </div>
             <div>
               <span className="text-slate-500 uppercase block mb-1 text-[10px]">Công Trình:</span>
               <div className="flex flex-wrap gap-1">
-                {character.territory.buildings.map((b, idx) => (
-                  <span key={idx} className="px-2 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 text-[10px]">
+                {(territory.buildings || []).map((b, idx) => (
+                  <span key={idx} className="px-2 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 text-[10px] rounded-sm">
                     {b}
                   </span>
                 ))}
@@ -1151,7 +1183,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
       </div>
 
       <SkillLibraryModal
-        skills={character.skills}
+        skills={characterSkills}
         isOpen={isSkillLibraryOpen}
         onClose={() => setIsSkillLibraryOpen(false)}
       />
@@ -1170,12 +1202,12 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
         >
           <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
             <div className="flex items-center gap-2 font-mono font-bold text-cyan-300">
-              <div className="p-1.5 bg-cyan-950 border border-cyan-500/50 rounded-xs">
+              <div className="p-1.5 bg-cyan-950 border border-cyan-500/50 rounded-sm">
                 {getItemIcon(hoveredItem)}
               </div>
               <span className="truncate max-w-[130px]">{hoveredItem.name}</span>
             </div>
-            <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-950 border border-amber-500/40 text-amber-300 rounded-xs shrink-0 font-bold">
+            <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-950 border border-amber-500/40 text-amber-300 rounded-sm shrink-0 font-bold">
               {getItemTypeLabel(hoveredItem.type)}
             </span>
           </div>
@@ -1190,7 +1222,7 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
               </p>
             </div>
 
-            <div className="p-1.5 bg-slate-900 border border-slate-800 rounded-xs text-[10px] font-mono text-cyan-300">
+            <div className="p-1.5 bg-slate-900 border border-slate-800 rounded-sm text-[10px] font-mono text-cyan-300">
               <span className="font-bold text-amber-300 block mb-0.5">💡 CÔNG DỤNG & GỢI Ý:</span>
               <span className="text-slate-300 font-sans block leading-normal">
                 {getItemUsageHint(hoveredItem)}
@@ -1220,12 +1252,12 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
             </div>
             <button
               onClick={onCloseModal}
-              className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-xs border border-slate-700 font-mono text-xs font-bold transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-sm border border-slate-700 font-mono text-xs font-bold transition-colors cursor-pointer"
             >
               [ĐÓNG X]
             </button>
           </div>
-          <div className="overflow-y-auto flex-1 p-2 sm:p-4 custom-scrollbar">
+          <div className="overflow-hidden flex-1 p-2 sm:p-4">
             {content}
           </div>
         </div>
@@ -1235,4 +1267,3 @@ export const StatusBoard: React.FC<Props> = ({ character, isOpenModal, onCloseMo
 
   return content;
 };
-
