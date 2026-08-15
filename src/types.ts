@@ -1,16 +1,17 @@
-export type RaceType = 'Slime' | 'Human' | 'Kijin' | 'Dragonewt';
+// Mở rộng RaceType linh hoạt cho các cấp tiến hóa về sau
+export type RaceType = 'Slime' | 'Human' | 'Kijin' | 'Dragonewt' | (string & {});
 
 // Tensura Core Skill Tiers & Distinct Power Systems
 export type SkillCategory = 
   | 'Common'      // 通常技能 - Kỹ năng thông thường cơ bản
   | 'Extra'       // Extra Skill - Kỹ năng đặc biệt chuyên môn hóa
-  | 'Unique'      // 固有技能 - Kỹ năng độc nhất (gắn liền ý chí/bản chất, chứa sub-skills)
-  | 'Ultimate'    // 究極能力 - Kỹ năng tối thượng (quyền năng quy luật thế giới, Lord/God)
-  | 'Manas'       // マナス - Thần trí thể / Ý thức linh hồn độc lập tiến hóa từ Ultimate Skill
-  | 'Intrinsic'   // 固有能力 / 種族固有 - Kỹ năng nội tại bẩm sinh theo chủng tộc
-  | 'Resistance'  // 耐性 - Kháng tính (nhiệt, lạnh, vật lý, độc, ma pháp, tinh thần...)
-  | 'Arts'        // 武芸 / アーツ - Võ kỹ, đấu khí, kiếm kỹ, kỹ thuật vận hành năng lượng
-  | 'Magic';      // 魔法 - Hệ thống ma pháp (nguyên tố, tinh linh, thần thánh, không gian, hạt nhân)
+  | 'Unique'      // 固有技能 - Kỹ năng độc nhất
+  | 'Ultimate'    // 究極能力 - Kỹ năng tối thượng
+  | 'Manas'       // マナス - Thần trí thể / Ý thức linh hồn
+  | 'Intrinsic'   // 固有能力 / 種族固有 - Kỹ năng nội tại bẩm sinh
+  | 'Resistance'  // 耐性 - Kháng tính
+  | 'Arts'        // 武芸 / アーツ - Võ kỹ, đấu khí
+  | 'Magic';      // 魔法 - Hệ thống ma pháp
 
 export type SkillType = 'Chủ động' | 'Bị động';
 
@@ -30,7 +31,7 @@ export interface Skill {
   id: string;
   name: string;
   japaneseName?: string;
-  lordConcept?: string;      // E.g., "Lord of Wisdom", "God of Void", "Lord of Gluttony"
+  lordConcept?: string;      // E.g., "Lord of Wisdom", "God of Void"
   category: SkillCategory;
   description: string;
   acquiredAt?: number;
@@ -42,11 +43,11 @@ export interface Skill {
   exp?: number;
   maxExp?: number;
   proficiency?: number;
-  subSkills?: SubSkill[];     // Năng lực con cấu thành bên trong (Sub-abilities)
-  evolutionLine?: string;    // Chuỗi tiến hóa (e.g., "Đại Hiền Triết → Raphael → Manas Ciel")
-  evolvesTo?: string;        // Kỹ năng đích có thể tiến hóa thành
-  evolutionRequirement?: string; // Điều kiện yêu cầu tiến hóa
-  isManas?: boolean;         // Đánh dấu thực thể ý thức độc lập
+  subSkills?: SubSkill[];
+  evolutionLine?: string;
+  evolvesTo?: string;
+  evolutionRequirement?: string;
+  isManas?: boolean;
   isFromArchive?: boolean;
 }
 
@@ -93,12 +94,12 @@ export interface Territory {
 }
 
 export interface EvolutionFactors {
-  devour: number;     // Bạo Thực / Thôn Phệ / Hấp Thụ
-  wisdom: number;     // Trí Tuệ / Phân Tích / Tính Toán
-  protection: number; // Bảo Hộ / Lãnh Địa / Minh Ước
-  combat: number;     // Võ Kỹ / Đấu Khí / Hủy Diệt
-  magic: number;      // Ma Pháp / Nguyên Tố / Trọng Lực
-  soul: number;       // Thần Tính / Biến Số / Tự Ngã Linh Hồn
+  devour: number;     // Bạo Thực / Thôn Phệ
+  wisdom: number;     // Trí Tuệ / Phân Tích
+  protection: number; // Bảo Hộ / Minh Ước
+  combat: number;     // Võ Kỹ / Đấu Khí
+  magic: number;      // Ma Pháp / Nguyên Tố
+  soul: number;       // Thần Tính / Tự Ngã
 }
 
 export interface EvolutionBranch {
@@ -111,13 +112,15 @@ export interface EvolutionBranch {
   description: string;
   lore: string;
   icon: string;
-  statBonuses: {
-    maxHp: number;
-    maxMp: number;
+  statBonuses?: {
+    maxHp?: number;
+    maxMp?: number;
+    atk?: number;
+    def?: number;
+    magic?: number;
   };
   grantedSkills: Skill[];
   requiredFactors?: Partial<EvolutionFactors>;
-  // Skill evolution fields
   targetSkillPattern?: string;
   newSkill?: Skill;
   absorbedSkillNames?: string[];
@@ -146,6 +149,10 @@ export interface CharacterStatus {
   maxHp: number;
   mp: number;
   maxMp: number;
+  // Bổ sung thuộc tính chiến đấu tương thích với TitleStatBonus
+  atk?: number;
+  def?: number;
+  magic?: number;
   skills: Skill[];
   inventory: InventoryItem[];
   territory: Territory;
@@ -180,6 +187,8 @@ export interface CombatEnemy {
   name: string;
   hp: number;
   maxHp: number;
+  atk?: number;
+  def?: number;
   level: number;
   description: string;
   skills: string[];
@@ -261,6 +270,7 @@ export interface GameState {
   suggestedActions: string[];
   location: string;
   storyState: StoryState;
+  pendingEvolution?: PendingEvolution | null; // Đã bổ sung
   isCombatActive: boolean;
   isGameOver: boolean;
   isInitialized: boolean;
@@ -285,5 +295,6 @@ export interface TurnResponse {
   locationUpdate?: string;
   suggestedActions: string[];
   isDevourSuccess?: boolean;
+  pendingEvolution?: PendingEvolution | null; // Đã bổ sung
   storyUpdate?: StoryUpdate;
 }
