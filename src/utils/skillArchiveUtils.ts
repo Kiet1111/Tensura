@@ -1,39 +1,16 @@
-// src/utils/skillArchiveUtils.ts
-import { Skill, SkillArchiveResult } from '../types';
+import { Skill } from '../types';
 
-export function processAutoSkillArchiving(
-  currentSkills: Skill[],
-  existingArchive: Skill[] = []
-): SkillArchiveResult {
-  const updatedSkills: Skill[] = [];
-  const newlyArchived: Skill[] = [];
-  const announcements: string[] = [];
+// Hàm này lấy danh sách lưu trữ kỹ năng
+export function getSkillArchive(category: string): Skill[] {
+  // Logic lấy dữ liệu kỹ năng theo category
+  // Bạn có thể tùy chỉnh danh sách trả về ở đây
+  return []; 
+}
 
-  const archiveMap = new Map<string, Skill>(existingArchive.map(s => [s.id, s]));
-
-  currentSkills.forEach((skill) => {
-    if (skill.level >= skill.maxLevel && !archiveMap.has(skill.id)) {
-      const archivedSkill: Skill = {
-        ...skill,
-        isArchived: true
-      };
-
-      archiveMap.set(skill.id, archivedSkill);
-      newlyArchived.push(archivedSkill);
-
-      announcements.push(
-        `[GIỌNG NÓI THẾ GIỚI]: Kỹ năng [${skill.name}] đã đạt cấp tối đa (Lv.${skill.maxLevel})! Tri thức đã được lưu trữ vào Từ Điển Kỹ Năng.`
-      );
-
-      updatedSkills.push({ ...skill, isArchived: true });
-    } else {
-      updatedSkills.push(skill);
-    }
-  });
-
+export function getEnrichedSkillDetails(skill: Skill) {
   return {
-    updatedSkills,
-    archivedSkills: Array.from(archiveMap.values()),
-    announcements
+    ...skill,
+    isMastered: (skill.exp || 0) >= (skill.maxExp || 100),
+    progress: Math.floor(((skill.exp || 0) / (skill.maxExp || 100)) * 100)
   };
 }
