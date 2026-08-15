@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Skill, SkillCategory, SkillType, SkillAttribute, SubSkill } from '../types';
+import { Skill, SkillCategory, SkillType, SkillAttribute } from '../types';
 import { getSkillClassification, getEnrichedSkillDetails, TENSURA_CATEGORY_METADATA } from '../utils/skillUtils';
 import { getSkillArchive } from '../utils/skillArchiveUtils';
 import { SkillProgressBar } from './SkillProgressBar';
@@ -14,7 +14,6 @@ import {
   Swords,
   Wand2,
   SlidersHorizontal,
-  Flame,
   Info,
   Layers,
   Radio,
@@ -23,7 +22,7 @@ import {
   GitBranch,
   Dna,
   CheckCircle2,
-  HelpCircle
+  FilterX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -82,12 +81,13 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
   });
 
   // Summary counts
-  const totalCount = skills.length;
+  const totalCount = skills?.length || 0;
+  const archiveCount = archivedSkills.length;
   const activeCount = enrichedSkills.filter((s) => s.type === 'Chủ động').length;
   const passiveCount = enrichedSkills.filter((s) => s.type === 'Bị động').length;
   const offenseCount = enrichedSkills.filter((s) => s.attribute === 'Tấn công').length;
   const defenseCount = enrichedSkills.filter((s) => s.attribute === 'Phòng thủ').length;
-  const supportCount = enrichedSkills.filter((s) => s.attribute === 'Hỗ trợ').length;
+  const supportCount = enrichedSkills.filter((s) => s.attribute === 'Hỗ trợ' || s.attribute === 'Quy luật').length;
 
   const getCategoryBadgeStyle = (category: SkillCategory) => {
     const meta = TENSURA_CATEGORY_METADATA[category] || TENSURA_CATEGORY_METADATA.Common;
@@ -187,7 +187,7 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-md animate-fade-in font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-md font-sans select-none">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -389,8 +389,8 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
             {/* Quick Stats Bar */}
             <div className="bg-slate-900/40 border-b border-slate-800 px-4 py-2.5 grid grid-cols-2 sm:grid-cols-6 gap-2 font-mono text-xs shrink-0">
               <div className="bg-slate-950/80 border border-slate-800 p-2 text-center rounded-xs">
-                <span className="text-[10px] text-slate-500 block uppercase">TỔNG KỸ NĂNG</span>
-                <span className="font-extrabold text-cyan-400 text-sm">{totalCount}</span>
+                <span className="text-[10px] text-slate-500 block uppercase">SỞ HỮU / TỪ ĐIỂN</span>
+                <span className="font-extrabold text-cyan-400 text-sm">{totalCount} <span className="text-xs text-purple-400 font-normal">({archiveCount} lưu trữ)</span></span>
               </div>
               <div className="bg-slate-950/80 border border-slate-800 p-2 text-center rounded-xs">
                 <span className="text-[10px] text-slate-500 block uppercase">CHỦ ĐỘNG</span>
@@ -424,14 +424,15 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Tìm kiếm theo tên, Kanji (捕食者, 智慧之王), Lord Concept (Lord of Gluttony) hoặc mô tả..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors rounded-xs"
+                  className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors rounded-xs"
                 />
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs cursor-pointer p-0.5"
+                    title="Xóa ô tìm kiếm"
                   >
-                    Xóa
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -510,7 +511,7 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
             <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-3 custom-scrollbar min-h-[300px]">
               {filteredSkills.length === 0 ? (
                 <div className="py-16 text-center space-y-3 border border-dashed border-slate-800 rounded-sm">
-                  <BookOpen className="w-10 h-10 text-slate-600 mx-auto" />
+                  <FilterX className="w-10 h-10 text-slate-600 mx-auto" />
                   <p className="text-sm text-slate-400 font-mono">
                     Không tìm thấy kỹ năng nào phù hợp với bộ lọc hiện tại.
                   </p>
@@ -521,9 +522,10 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
                       setSelectedType('All');
                       setSelectedAttribute('All');
                     }}
-                    className="px-3 py-1.5 bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-mono text-xs hover:bg-cyan-900 transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-mono text-xs hover:bg-cyan-900 transition-colors cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    Xóa Bộ Lọc
+                    <X className="w-3.5 h-3.5" />
+                    <span>Xóa Bộ Lọc</span>
                   </button>
                 </div>
               ) : (
@@ -531,6 +533,7 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
                   {filteredSkills.map((skill, index) => {
                     const categoryBadgeClass = getCategoryBadgeStyle(skill.category);
                     const categoryIcon = getCategoryIcon(skill.category);
+                    const isMaxed = skill.proficiency !== undefined && skill.proficiency >= 100;
 
                     return (
                       <div
@@ -545,9 +548,17 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
                               {categoryIcon}
                             </div>
                             <div>
-                              <h3 className="font-black text-sm text-white group-hover:text-cyan-300 transition-colors">
-                                {skill.name}
-                              </h3>
+                              <div className="flex items-center gap-1.5">
+                                <h3 className="font-black text-sm text-white group-hover:text-cyan-300 transition-colors">
+                                  {skill.name}
+                                </h3>
+                                {isMaxed && (
+                                  <span className="text-[9px] text-emerald-400 bg-emerald-950 border border-emerald-500/40 px-1 py-0.2 rounded-xs font-mono font-bold flex items-center gap-0.5">
+                                    <CheckCircle2 className="w-2.5 h-2.5" />
+                                    MAX
+                                  </span>
+                                )}
+                              </div>
                               {skill.japaneseName && (
                                 <p className="text-[10px] font-mono text-slate-400">
                                   {skill.japaneseName} {skill.lordConcept ? `// [${skill.lordConcept}]` : ''}
@@ -619,7 +630,7 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
         {/* Detail Inspection Modal Overlay */}
         <AnimatePresence>
           {inspectingSkill && (
-            <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+            <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-sm">
               <motion.div
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -759,7 +770,7 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
 
         {/* Modal Footer */}
         <div className="p-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
-          <span>Đang hiển thị {filteredSkills.length} / {enrichedSkills.length} kỹ năng ({skills.length} đã kích hoạt)</span>
+          <span>Đang hiển thị {filteredSkills.length} / {enrichedSkills.length} kỹ năng ({skills?.length || 0} đã kích hoạt)</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold transition-colors rounded-xs cursor-pointer"
@@ -771,4 +782,3 @@ export const SkillLibraryModal: React.FC<Props> = ({ skills, isOpen, onClose }) 
     </div>
   );
 };
-
