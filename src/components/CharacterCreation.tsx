@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RaceType, CharacterStatus, Skill } from '../types';
-import { Sparkles, Shield, Zap, Wand2, Compass, CheckCircle2, MapPin, Clock, Landmark, Swords, Mountain, Crown } from 'lucide-react';
+import { Sparkles, CheckCircle2, MapPin, Clock } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { getInitialTitles } from '../utils/titleData';
 import { getSkillMaxExp } from '../utils/skillUtils';
@@ -58,7 +58,7 @@ const STARTING_LOCATIONS: StartingLocation[] = [
     shortDesc: 'Kinh đô ngầm rèn đúc vũ khí ma thuật thần cấp.',
     fullDesc: 'Đô thành ngầm huyền thoại nằm trong dãy núi Canaat. Nơi quy tụ các thợ rèn dwarf tài ba và thị trường thương mại tấp nập.',
     icon: '⚒️',
-    bonusHint: 'Nhận Ngay 1 Vũ Khí Ma Ngân & Kỹ Năng Rèn Đúc'
+    bonusHint: 'Nhận Ngay 1 Vũ Khí Ma Ngân & Kỹ Năng Rèn Đúc (+10 ATK)'
   },
   {
     id: 'ruberios_holy',
@@ -120,6 +120,9 @@ const RACES: {
   icon: string;
   statsBonus: string;
   innateSkill: string;
+  baseAtk: number;
+  baseDef: number;
+  baseMagic: number;
 }[] = [
   {
     id: 'Slime',
@@ -128,6 +131,9 @@ const RACES: {
     icon: '💧',
     statsBonus: 'Kháng Vật Lý +80%, Hồi HP, Dạ Dày Thôn Phệ',
     innateSkill: 'Tái Tạo Tế Bào & Biến Hình Dạng Nhầy',
+    baseAtk: 15,
+    baseDef: 25,
+    baseMagic: 30
   },
   {
     id: 'Kijin',
@@ -136,6 +142,9 @@ const RACES: {
     icon: '👹',
     statsBonus: 'Kiếm Thuật +50%, Kháng Nhiệt Độ +60%',
     innateSkill: 'Bá Khí Quỷ Nhân & Hỏa Hồn Hóa',
+    baseAtk: 35,
+    baseDef: 20,
+    baseMagic: 25
   },
   {
     id: 'Dragonewt',
@@ -144,6 +153,9 @@ const RACES: {
     icon: '🐉',
     statsBonus: 'Giáp Vảy Rồng +50%, Bay Lượn, Long Khí',
     innateSkill: 'Khí Áp Long Nhân & Vảy Long Băng/Hỏa',
+    baseAtk: 25,
+    baseDef: 35,
+    baseMagic: 20
   },
   {
     id: 'Human',
@@ -152,6 +164,9 @@ const RACES: {
     icon: '⚔️',
     statsBonus: 'Học Kỹ Năng +50%, Tối đa MP +100',
     innateSkill: 'Lĩnh Hội Tinh Thần & Ma Thuật Nguyên Tố',
+    baseAtk: 20,
+    baseDef: 15,
+    baseMagic: 40
   }
 ];
 
@@ -198,16 +213,22 @@ export const CharacterCreation: React.FC<Props> = ({ onCharacterCreated }) => {
   const handleStartGame = () => {
     soundManager.playLevelUpSound();
 
-    const selectedRaceObj = RACES.find(r => r.id === selectedRace)!;
+    const selectedRaceObj = RACES.find(r => r.id === selectedRace) || RACES[0];
     const selectedLocObj = STARTING_LOCATIONS.find(l => l.id === selectedLocationId) || STARTING_LOCATIONS[0];
     const selectedEraObj = TIMELINE_ERAS.find(e => e.id === selectedEraId) || TIMELINE_ERAS[0];
 
-    // Starting bonuses based on location
+    // Starting bonus stats based on location
     let extraHp = 0;
     let extraMp = 0;
+    let extraAtk = 0;
+    let extraDef = 0;
+    let extraMagic = 0;
+
     if (selectedLocObj.id === 'sealing_cave') extraMp += 50;
     if (selectedLocObj.id === 'jura_forest') extraHp += 30;
-    if (selectedLocObj.id === 'ruberios_holy') extraMp += 30;
+    if (selectedLocObj.id === 'ruberios_holy') { extraMp += 30; extraMagic += 15; }
+    if (selectedLocObj.id === 'eastern_empire') extraAtk += 20;
+    if (selectedLocObj.id === 'dwargon_kingdom') { extraAtk += 10; extraDef += 10; }
 
     const initialUniqueSkill: Skill = {
       id: `unique_${Date.now()}`,
@@ -215,6 +236,8 @@ export const CharacterCreation: React.FC<Props> = ({ onCharacterCreated }) => {
       category: 'Unique',
       description: skillDesc || 'Chưa có mô tả sức mạnh.',
       acquiredAt: 1,
+      type: 'Chủ động',
+      attribute: 'Quy luật',
       level: 1,
       exp: 0,
       maxExp: getSkillMaxExp(1, 'Unique'),
@@ -224,12 +247,14 @@ export const CharacterCreation: React.FC<Props> = ({ onCharacterCreated }) => {
     const initialInnateSkill: Skill = {
       id: `innate_${Date.now()}`,
       name: selectedRaceObj.innateSkill,
-      category: 'Extra',
+      category: 'Intrinsic',
       description: `Kỹ năng bẩm sinh của chủng tộc ${selectedRaceObj.title}`,
       acquiredAt: 1,
+      type: 'Bị động',
+      attribute: 'Đa dụng',
       level: 1,
       exp: 0,
-      maxExp: getSkillMaxExp(1, 'Extra'),
+      maxExp: getSkillMaxExp(1, 'Intrinsic'),
       proficiency: 0
     };
 
@@ -239,6 +264,8 @@ export const CharacterCreation: React.FC<Props> = ({ onCharacterCreated }) => {
       category: 'Resistance',
       description: 'Giảm thiểu sát thương nhận vào từ thuộc tính tương ứng.',
       acquiredAt: 1,
+      type: 'Bị động',
+      attribute: 'Phòng thủ',
       level: 1,
       exp: 0,
       maxExp: getSkillMaxExp(1, 'Resistance'),
@@ -254,6 +281,9 @@ export const CharacterCreation: React.FC<Props> = ({ onCharacterCreated }) => {
       maxHp: (selectedRace === 'Slime' ? 120 : selectedRace === 'Kijin' ? 150 : 130) + extraHp,
       mp: (selectedRace === 'Slime' ? 200 : selectedRace === 'Human' ? 250 : 180) + extraMp,
       maxMp: (selectedRace === 'Slime' ? 200 : selectedRace === 'Human' ? 250 : 180) + extraMp,
+      atk: selectedRaceObj.baseAtk + extraAtk,
+      def: selectedRaceObj.baseDef + extraDef,
+      magic: selectedRaceObj.baseMagic + extraMagic,
       skills: [initialUniqueSkill, initialInnateSkill, initialResistance],
       inventory: [
         {
@@ -552,4 +582,3 @@ Hành trình chinh phục Ma Vương và xây dựng **${character.territory.nam
     </div>
   );
 };
-
