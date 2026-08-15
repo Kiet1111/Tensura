@@ -1,30 +1,13 @@
-// src/utils/skillUtils.ts
-import { Skill } from './skillArchiveUtils';
-import { processAutoSkillArchiving } from './skillArchiveUtils';
+import { Skill } from '../types';
 
-/**
- * Tăng kinh nghiệm / cấp độ cho kỹ năng và tự động lưu vào Từ Điển nếu MAX
- */
-export function addSkillExp(
-  skills: Skill[],
-  archive: Skill[],
-  skillId: string,
-  expAmount: number
-) {
-  const updatedSkills = skills.map((skill) => {
-    if (skill.id === skillId) {
-      const newLevel = Math.min(skill.level + expAmount, skill.maxLevel);
-      return { ...skill, level: newLevel };
-    }
-    return skill;
-  });
+export function getSkillProgress(skill: Skill): number {
+  if (!skill) return 0;
+  const currentExp = skill.exp || 0;
+  const maxExp = skill.maxExp || 100;
+  return Math.min(100, Math.max(0, Math.floor((currentExp / maxExp) * 100)));
+}
 
-  // Chạy cơ chế kiểm tra tự động gửi vào Từ Điển Kỹ Năng
-  const archiveCheck = processAutoSkillArchiving(updatedSkills, archive);
-
-  return {
-    skills: archiveCheck.updatedSkills,
-    archive: archiveCheck.archivedSkills,
-    announcements: archiveCheck.announcements
-  };
+export function canEvolveSkill(skill: Skill): boolean {
+  if (!skill) return false;
+  return (skill.exp || 0) >= (skill.maxExp || 100) && !!skill.evolutionTarget;
 }
