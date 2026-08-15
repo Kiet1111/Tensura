@@ -46,14 +46,31 @@ export const CombatLogPanel: React.FC<Props> = ({
   };
 
   const filteredLogs = combatLogs.filter(log => {
-    if (filter === 'combat') return log.type === 'attack' || log.damageDealt || log.damageTaken;
-    if (filter === 'skill') return log.type === 'skill' || log.skillUsed;
-    if (filter === 'devour') return log.type === 'devour';
+    if (filter === 'combat') {
+      return log.type === 'attack' || (log.damageDealt !== undefined && log.damageDealt > 0) || (log.damageTaken !== undefined && log.damageTaken > 0);
+    }
+    if (filter === 'skill') {
+      return log.type === 'skill' || !!log.skillUsed || log.type === 'heal' || log.type === 'buff';
+    }
+    if (filter === 'devour') {
+      return log.type === 'devour';
+    }
     return true;
   });
 
+  const getLogTypeColor = (type: CombatLogEntry['type']) => {
+    switch (type) {
+      case 'devour': return 'text-purple-300 border-purple-500/50 bg-purple-950/80';
+      case 'attack': return 'text-rose-300 border-rose-500/50 bg-rose-950/80';
+      case 'skill': return 'text-cyan-300 border-cyan-500/50 bg-cyan-950/80';
+      case 'heal': return 'text-emerald-300 border-emerald-500/50 bg-emerald-950/80';
+      case 'buff': return 'text-amber-300 border-amber-500/50 bg-amber-950/80';
+      default: return 'text-slate-300 border-slate-700 bg-slate-900';
+    }
+  };
+
   return (
-    <div className="h-full flex flex-col bg-slate-900/90 border border-rose-500/30 p-2.5 sm:p-3 rounded-sm shadow-xl font-mono text-xs overflow-hidden relative">
+    <div className="h-full flex flex-col bg-slate-900/90 border border-rose-500/30 p-2.5 sm:p-3 rounded-xs shadow-xl font-mono text-xs overflow-hidden relative">
       {/* Panel Header */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 pb-2">
         <div className="flex items-center space-x-2">
@@ -82,7 +99,7 @@ export const CombatLogPanel: React.FC<Props> = ({
             }`}
             title="Tự động cuộn xuống khi có dữ liệu chiến đấu mới"
           >
-            <ArrowDown className={`w-2.5 h-2.5 ${isAutoScroll ? 'text-rose-400 animate-bounce-short' : ''}`} />
+            <ArrowDown className={`w-2.5 h-2.5 ${isAutoScroll ? 'text-rose-400 animate-bounce' : ''}`} />
             <span>AUTO</span>
           </button>
 
@@ -202,7 +219,7 @@ export const CombatLogPanel: React.FC<Props> = ({
             return (
               <div
                 key={entry.id}
-                className={`p-2.5 rounded-sm border transition-all ${
+                className={`p-2.5 rounded-xs border transition-all ${
                   isDevour
                     ? 'bg-purple-950/20 border-purple-500/40'
                     : isAttack
@@ -219,13 +236,13 @@ export const CombatLogPanel: React.FC<Props> = ({
                     <span>•</span>
                     <span>{entry.timestamp || '00:00'}</span>
                   </span>
-                  <span className="uppercase font-bold tracking-wider px-1.5 py-0.2 bg-slate-900 border border-slate-700 text-slate-300">
+                  <span className={`uppercase font-bold tracking-wider px-1.5 py-0.5 border text-[9px] rounded-xs ${getLogTypeColor(entry.type)}`}>
                     {entry.type}
                   </span>
                 </div>
 
                 {/* Entry Action */}
-                <p className="text-white font-semibold text-xs leading-relaxed mb-1.5 flex items-start gap-1.5">
+                <p className="text-white font-semibold text-xs leading-relaxed mb-1.5 flex items-start gap-1.5 font-sans">
                   <ChevronRight className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
                   <span>{entry.actionName}</span>
                 </p>
@@ -233,31 +250,31 @@ export const CombatLogPanel: React.FC<Props> = ({
                 {/* Metrics badging */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[10px]">
                   {entry.skillUsed && (
-                    <span className="px-1.5 py-0.5 bg-amber-950/80 border border-amber-500/50 text-amber-300 flex items-center gap-1 font-bold">
+                    <span className="px-1.5 py-0.5 bg-amber-950/80 border border-amber-500/50 text-amber-300 flex items-center gap-1 font-bold rounded-xs">
                       <Sparkles className="w-3 h-3 text-amber-400" /> [{entry.skillUsed}]
                     </span>
                   )}
 
                   {entry.damageDealt !== undefined && entry.damageDealt > 0 && (
-                    <span className="px-1.5 py-0.5 bg-rose-950 border border-rose-500/60 text-rose-300 font-bold flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 bg-rose-950 border border-rose-500/60 text-rose-300 font-bold flex items-center gap-1 rounded-xs">
                       <Swords className="w-3 h-3 text-rose-400" /> ĐIỂM SÁT THƯƠNG: -{entry.damageDealt} HP
                     </span>
                   )}
 
                   {entry.damageTaken !== undefined && entry.damageTaken > 0 && (
-                    <span className="px-1.5 py-0.5 bg-red-950 border border-red-500/80 text-red-400 font-bold flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 bg-red-950 border border-red-500/80 text-red-400 font-bold flex items-center gap-1 rounded-xs">
                       <Heart className="w-3 h-3 text-red-400" /> BỊ THƯƠNG: -{entry.damageTaken} HP
                     </span>
                   )}
 
                   {entry.hpChange !== undefined && entry.hpChange > 0 && (
-                    <span className="px-1.5 py-0.5 bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-bold flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-bold flex items-center gap-1 rounded-xs">
                       <Heart className="w-3 h-3 text-emerald-400" /> HỒI PHỤC: +{entry.hpChange} HP
                     </span>
                   )}
 
                   {entry.mpChange !== undefined && entry.mpChange !== 0 && (
-                    <span className={`px-1.5 py-0.5 border font-bold flex items-center gap-1 ${
+                    <span className={`px-1.5 py-0.5 border font-bold flex items-center gap-1 rounded-xs ${
                       entry.mpChange > 0
                         ? 'bg-cyan-950 border-cyan-500/60 text-cyan-300'
                         : 'bg-slate-900 border-slate-700 text-slate-400'
@@ -267,7 +284,7 @@ export const CombatLogPanel: React.FC<Props> = ({
                   )}
 
                   {entry.effect && (
-                    <span className="px-1.5 py-0.5 bg-purple-950 border border-purple-500/60 text-purple-300 font-bold">
+                    <span className="px-1.5 py-0.5 bg-purple-950 border border-purple-500/60 text-purple-300 font-bold rounded-xs">
                       ✦ {entry.effect}
                     </span>
                   )}
@@ -279,14 +296,14 @@ export const CombatLogPanel: React.FC<Props> = ({
         <div ref={bottomRef} />
       </div>
 
-      {/* Floating Scroll to Bottom Button if user scrolled up */}
+      {/* Floating Scroll to Bottom Button */}
       {showScrollBottomBtn && (
         <button
           onClick={() => {
             setIsAutoScroll(true);
             scrollToBottom(true);
           }}
-          className="absolute bottom-4 right-6 z-20 px-3 py-1.5 bg-rose-950 border border-rose-400 text-rose-300 font-mono text-xs font-bold rounded-full shadow-[0_0_15px_rgba(244,63,94,0.3)] flex items-center gap-1.5 animate-bounce-short cursor-pointer hover:bg-rose-900 transition-all"
+          className="absolute bottom-4 right-6 z-20 px-3 py-1.5 bg-rose-950 border border-rose-400 text-rose-300 font-mono text-xs font-bold rounded-full shadow-[0_0_15px_rgba(244,63,94,0.3)] flex items-center gap-1.5 animate-bounce cursor-pointer hover:bg-rose-900 transition-all"
         >
           <ArrowDown className="w-3.5 h-3.5" />
           <span>CUỘN XUỐNG MỚI NHẤT</span>
