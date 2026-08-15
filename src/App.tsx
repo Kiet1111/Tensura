@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterStatus, GameLog, CombatEnemy, GameState, TurnResponse, Skill, InventoryItem, CombatLogEntry, CharacterTitle, StoryState, PendingEvolution, EvolutionBranch } from './types';
+import { 
+  CharacterStatus, 
+  GameLog, 
+  CombatEnemy, 
+  GameState, 
+  TurnResponse, 
+  Skill, 
+  InventoryItem, 
+  CombatLogEntry, 
+  PendingEvolution, 
+  EvolutionBranch 
+} from './types';
 import { CharacterCreation } from './components/CharacterCreation';
 import { StatusBoard } from './components/StatusBoard';
 import { GameLogPanel } from './components/GameLogPanel';
@@ -41,17 +52,12 @@ import {
   Volume2,
   VolumeX,
   Compass,
-  Shield,
-  Heart,
-  Zap,
-  BookOpen,
-  Activity,
   Scroll,
-  GitBranch,
+  Activity,
   LogOut,
   Archive,
   UserPlus,
-  Dna
+  BookOpen
 } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'tensura_rpg_game_save_v1';
@@ -81,6 +87,9 @@ export default function App() {
             const equipped = parsed.character.titles.find((t: any) => t.isEquipped);
             parsed.character.equippedTitleId = equipped ? equipped.id : 'title_veldora_sworn';
           }
+          if (!parsed.character.evolutionFactors) {
+            parsed.character.evolutionFactors = INITIAL_EVOLUTION_FACTORS;
+          }
         }
         return {
           ...parsed,
@@ -88,7 +97,7 @@ export default function App() {
           storyState: parsed.storyState || getInitialStoryState()
         };
       } catch (e) {
-        console.error("Failed to parse saved game:", e);
+        console.error("Lỗi khi đọc file lưu game:", e);
       }
     }
     return {
@@ -122,18 +131,17 @@ export default function App() {
   const [pendingEvolution, setPendingEvolution] = useState<PendingEvolution | null>(null);
 
   const actionSectionRef = useRef<HTMLDivElement>(null);
-  const deviceInfo = useDeviceAdaptation();
+  useDeviceAdaptation();
 
   const handleScrollToActions = () => {
-    if (actionSectionRef.current) {
-      actionSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    actionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
   const handleDismissToast = (id: string) => {
     setSkillToasts(prev => prev.filter(t => t.id !== id));
   };
 
+  // Tiến hóa Nhánh kỹ năng hoặc Chủng tộc
   const handleSelectEvolutionBranch = (branch: EvolutionBranch) => {
     if (!gameState.character) return;
 
@@ -169,12 +177,14 @@ export default function App() {
       };
 
       if (branch.newSkill) {
-        const newToast: ToastItem = {
-          id: `toast_skill_evo_${Date.now()}`,
-          skill: branch.newSkill,
-          timestamp: Date.now()
-        };
-        setSkillToasts(prev => [newToast, ...prev]);
+        setSkillToasts(prev => [
+          {
+            id: `toast_skill_evo_${Date.now()}`,
+            skill: branch.newSkill!,
+            timestamp: Date.now()
+          },
+          ...prev
+        ]);
       }
 
       setGameState(prev => ({
@@ -192,7 +202,7 @@ export default function App() {
       return;
     }
 
-    // Race Evolution
+    // Tiến hóa chủng tộc
     const { updatedCharacter, worldVoiceAnnouncement } = applyEvolutionBranch(gameState.character, branch);
 
     const evoLog: GameLog = {
@@ -214,7 +224,6 @@ export default function App() {
       type: 'system'
     };
 
-    // Toasts for newly granted skills from evolution
     if (branch.grantedSkills && branch.grantedSkills.length > 0) {
       const newToasts: ToastItem[] = branch.grantedSkills.map((sk, idx) => ({
         id: `toast_evo_skill_${Date.now()}_${idx}`,
@@ -231,7 +240,7 @@ export default function App() {
         },
         timestamp: Date.now() + idx * 250
       }));
-      setSkillToasts(prev => [...newToasts, ...prev]);
+      setSkillToasts(prev => [...prev, ...newToasts]);
     }
 
     setGameState(prev => ({
@@ -247,14 +256,14 @@ export default function App() {
     }
   };
 
-  // Save progress to LocalStorage
+  // Lưu tự động vào LocalStorage
   useEffect(() => {
     if (gameState.isInitialized) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(gameState));
     }
   }, [gameState]);
 
-  // Handle Character Creation
+  // Tạo nhân vật mới
   const handleCharacterCreated = (character: CharacterStatus, initialNarrative: string) => {
     const initialLog: GameLog = {
       id: `log_${Date.now()}`,
@@ -292,6 +301,7 @@ export default function App() {
         "Tiến ra ngoài Rừng Lớn Jura"
       ],
       location: "Hang Động Phong Ấn Sealing Cave",
+      storyState: getInitialStoryState(),
       isCombatActive: false,
       isGameOver: false,
       isInitialized: true
@@ -301,7 +311,6 @@ export default function App() {
       soundManager.playWorldVoiceChime();
     }
 
-    // Trigger toasts for awakened initial skills
     if (character.skills && character.skills.length > 0) {
       const initialToasts: ToastItem[] = character.skills.map((sk, idx) => ({
         id: `toast_init_${sk.id || idx}_${Date.now()}`,
@@ -343,14 +352,13 @@ export default function App() {
     }
   };
 
-  // Process Action Turn
+  // Xử lý lượt chơi
   const handleAction = async (actionText: string) => {
     if (!gameState.character || isLoading || !actionText.trim()) return;
 
     const currentTurn = gameState.character.turn + 1;
     setIsLoading(true);
 
-    // Add Player action log
     const playerLog: GameLog = {
       id: `log_player_${Date.now()}`,
       type: 'player_action',
@@ -365,7 +373,6 @@ export default function App() {
     setCustomActionText('');
 
     try {
-      // API call to backend Gemini GM Server
       const res = await fetch('/api/game/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -384,25 +391,22 @@ export default function App() {
       if (res.ok && contentType && contentType.includes('application/json')) {
         try {
           turnData = await res.json();
-        } catch (jsonErr) {
-          console.warn("Could not parse JSON response from /api/game/turn, using client fallback:", jsonErr);
+        } catch {
           turnData = generateClientFallbackTurn(gameState.character, actionText, gameState.currentEnemy, gameState.location);
         }
       } else {
-        console.warn(`Server returned status ${res.status} or non-JSON content. Using client fallback.`);
         turnData = generateClientFallbackTurn(gameState.character, actionText, gameState.currentEnemy, gameState.location);
       }
 
-      // Play sound if World Voice announced something
+      // Phát âm thanh nếu có World Voice hoặc Thôn Phệ
       if (turnData.worldVoiceAnnouncements && turnData.worldVoiceAnnouncements.length > 0 && soundEnabled) {
         soundManager.playWorldVoiceChime();
       }
-
       if (turnData.isDevourSuccess && soundEnabled) {
         soundManager.playDevourSound();
       }
 
-      // Collect newly acquired skills or resistances for Toast Notifications
+      // Xử lý Toasts cho Skill/Resistance mới
       const newToasts: ToastItem[] = [];
       const currentSkills = gameState.character?.skills || [];
 
@@ -434,11 +438,13 @@ export default function App() {
         setSkillToasts(prev => [...prev, ...newToasts]);
       }
 
-      // Calculate state updates
+      // Chuẩn bị biến lưu tạm để gọi side-effects sau khi tính toán State
+      let pendingEvoToSet: PendingEvolution | null = null;
+      let shouldPlayLevelSound = false;
+
       setGameState(prev => {
         if (!prev.character) return prev;
 
-        // Update skills
         let updatedSkills = [...prev.character.skills];
         if (turnData.newSkills) {
           turnData.newSkills.forEach((ns, idx) => {
@@ -457,6 +463,7 @@ export default function App() {
             }
           });
         }
+
         if (turnData.newResistances) {
           turnData.newResistances.forEach((nr, idx) => {
             if (!updatedSkills.some(s => s.name === nr.name)) {
@@ -475,7 +482,6 @@ export default function App() {
           });
         }
 
-        // Process XP progression for all skills used/exercised this turn
         const { updatedSkills: expUpdatedSkills, levelUpAnnouncements: skillLevelAnnouncements } = processTurnSkillExp(
           updatedSkills,
           actionText,
@@ -484,7 +490,6 @@ export default function App() {
         );
         updatedSkills = expUpdatedSkills;
 
-        // Update inventory
         let updatedInventory = [...prev.character.inventory];
         if (turnData.itemsGained) {
           turnData.itemsGained.forEach(item => {
@@ -497,7 +502,6 @@ export default function App() {
           });
         }
 
-        // Update territory
         let updatedTerritory = { ...prev.character.territory };
         if (turnData.territoryChanges) {
           const tc = turnData.territoryChanges;
@@ -512,16 +516,9 @@ export default function App() {
           }
         }
 
-        const newHp = Math.min(
-          prev.character.maxHp,
-          Math.max(1, prev.character.hp + (turnData.hpChange || 0))
-        );
-        const newMp = Math.min(
-          prev.character.maxMp + 20,
-          Math.max(0, prev.character.mp + (turnData.mpChange || 0))
-        );
+        const newHp = Math.min(prev.character.maxHp, Math.max(1, prev.character.hp + (turnData.hpChange || 0)));
+        const newMp = Math.min(prev.character.maxMp + 20, Math.max(0, prev.character.mp + (turnData.mpChange || 0)));
 
-        // Update storyState if turnData contains storyUpdate
         let updatedStoryState = { ...prev.storyState };
         if (turnData.storyUpdate) {
           const su = turnData.storyUpdate;
@@ -534,17 +531,15 @@ export default function App() {
           }
           if (su.variableTitle) updatedStoryState.variableTitle = su.variableTitle;
 
-          // Relation updates
           if (su.relationChanges && su.relationChanges.length > 0) {
             let updatedRelations = [...updatedStoryState.relations];
             su.relationChanges.forEach(rc => {
               const idx = updatedRelations.findIndex(r => r.name.toLowerCase().includes(rc.name.toLowerCase()));
               if (idx !== -1) {
                 const curr = updatedRelations[idx];
-                const newAff = Math.min(100, Math.max(0, curr.affinity + (rc.affinityChange || 0)));
                 updatedRelations[idx] = {
                   ...curr,
-                  affinity: newAff,
+                  affinity: Math.min(100, Math.max(0, curr.affinity + (rc.affinityChange || 0))),
                   status: (rc.newStatus as any) || curr.status,
                   notes: rc.notes || curr.notes
                 };
@@ -561,22 +556,16 @@ export default function App() {
             updatedStoryState.relations = updatedRelations;
           }
 
-          // Milestone updates
           if (su.milestoneUnlocked) {
             const mu = su.milestoneUnlocked;
             updatedStoryState.milestones = updatedStoryState.milestones.map(m => {
               if (m.id === mu.id || m.title.toLowerCase().includes(mu.title?.toLowerCase() || '')) {
-                return {
-                  ...m,
-                  status: mu.status,
-                  playerImpact: mu.playerImpact || m.playerImpact
-                };
+                return { ...m, status: mu.status, playerImpact: mu.playerImpact || m.playerImpact };
               }
               return m;
             });
           }
 
-          // Log recent canon changes
           if (su.canonChangeDescription) {
             updatedStoryState.recentCanonChanges = [
               su.canonChangeDescription,
@@ -592,19 +581,12 @@ export default function App() {
 
         currentTitles = currentTitles.map(t => {
           if (t.unlocked) return t;
-
           let shouldUnlock = false;
-          if (t.id === 'title_endless_predator' && (updatedSkills.length >= 4 || updatedInventory.length >= 3)) {
-            shouldUnlock = true;
-          } else if (t.id === 'title_destroyer' && currentTurn >= 2) {
-            shouldUnlock = true;
-          } else if (t.id === 'title_jura_ruler' && updatedTerritory.level >= 2) {
-            shouldUnlock = true;
-          } else if (t.id === 'title_anomaly_variable' && updatedStoryState.divergenceRate >= 20) {
-            shouldUnlock = true;
-          } else if (t.id === 'title_demon_lord_awakened' && prev.character.evolutionStage >= 4) {
-            shouldUnlock = true;
-          }
+          if (t.id === 'title_endless_predator' && (updatedSkills.length >= 4 || updatedInventory.length >= 3)) shouldUnlock = true;
+          else if (t.id === 'title_destroyer' && currentTurn >= 2) shouldUnlock = true;
+          else if (t.id === 'title_jura_ruler' && updatedTerritory.level >= 2) shouldUnlock = true;
+          else if (t.id === 'title_anomaly_variable' && updatedStoryState.divergenceRate >= 20) shouldUnlock = true;
+          else if (t.id === 'title_demon_lord_awakened' && prev.character.evolutionStage >= 4) shouldUnlock = true;
 
           if (shouldUnlock) {
             titleAnnouncements.push(`░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░\n[GIỌNG NÓI THẾ GIỚI]: Đã xác nhận thành tựu... Mở khóa Danh Hiệu Mới: [${t.name}]!\n[Thưởng Ẩn]: ${t.bonus.description}\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`);
@@ -613,7 +595,6 @@ export default function App() {
           return t;
         });
 
-        // Calculate factor gains based on action text and narrative
         const factorGains = calculateActionFactors(actionText, turnData.narrative || '', turnData.isDevourSuccess);
         const currentFactors = prev.character.evolutionFactors || INITIAL_EVOLUTION_FACTORS;
         const updatedFactors = applyFactorGains(currentFactors, factorGains);
@@ -628,50 +609,21 @@ export default function App() {
           turn: currentTurn,
           titles: currentTitles,
           evolutionFactors: updatedFactors,
-          evolutionHistory: prev.character.evolutionHistory || [
-            `Giai đoạn 1: Sơ sinh (${prev.character.raceTitle})`
-          ]
+          evolutionHistory: prev.character.evolutionHistory || [`Giai đoạn 1: Sơ sinh (${prev.character.raceTitle})`]
         };
 
-        // Check race evolution eligibility
         const raceEligibility = checkRaceEvolutionEligibility(finalCharacter);
         let evoAnnouncement: string | undefined = undefined;
-        let pendingEvoToSet: PendingEvolution | null = null;
 
         if (raceEligibility.eligible && raceEligibility.branches.length > 0) {
           const resolution = resolveRaceEvolution(finalCharacter, raceEligibility.branches);
 
           if (resolution.isDominant && resolution.dominantBranch) {
-            // SKEWED / DOMINANT: Automatically select the evolution path!
             const applied = applyEvolutionBranch(finalCharacter, resolution.dominantBranch);
             finalCharacter = applied.updatedCharacter;
             evoAnnouncement = applied.worldVoiceAnnouncement;
-
-            // Trigger toast for dominant race evolution
-            if (resolution.dominantBranch.grantedSkills) {
-              const evoToasts: ToastItem[] = resolution.dominantBranch.grantedSkills.map((sk, idx) => ({
-                id: `toast_evo_auto_${Date.now()}_${idx}`,
-                skill: {
-                  id: `sk_evo_auto_${Date.now()}_${idx}`,
-                  name: sk.name,
-                  category: sk.category,
-                  description: sk.description,
-                  acquiredAt: currentTurn,
-                  level: 1,
-                  exp: 0,
-                  maxExp: getSkillMaxExp(1, sk.category),
-                  proficiency: 0
-                },
-                timestamp: Date.now() + idx * 300
-              }));
-              setSkillToasts(prevToasts => [...evoToasts, ...prevToasts]);
-            }
-
-            if (soundEnabled) {
-              soundManager.playLevelUpSound();
-            }
+            shouldPlayLevelSound = true;
           } else if (!resolution.isDominant && resolution.balancedBranches.length > 0) {
-            // BALANCED: Trigger player choice modal!
             pendingEvoToSet = {
               id: `evo_pending_${Date.now()}`,
               type: 'race',
@@ -681,14 +633,9 @@ export default function App() {
               triggeredBy: actionText,
               factorSnapshot: updatedFactors
             };
-
-            if (soundEnabled) {
-              soundManager.playWorldVoiceChime();
-            }
           }
         }
 
-        // Check Skill Evolution eligibility across all skills if no race evolution choice modal is waiting
         let skillEvoAnnouncements: string[] = [];
         if (!pendingEvoToSet) {
           for (const sk of finalCharacter.skills) {
@@ -697,26 +644,11 @@ export default function App() {
               const resolution = resolveSkillEvolution(finalCharacter, sk, skillEligibility.branches);
 
               if (resolution.isDominant && resolution.dominantBranch) {
-                // SKEWED / DOMINANT: Automatically evolve skill!
                 const applied = applySkillEvolutionBranch(finalCharacter, resolution.dominantBranch, sk.id);
                 finalCharacter = applied.updatedCharacter;
                 skillEvoAnnouncements.push(applied.worldVoiceAnnouncement);
-
-                if (resolution.dominantBranch.newSkill) {
-                  const newToast: ToastItem = {
-                    id: `toast_skill_evo_auto_${Date.now()}`,
-                    skill: resolution.dominantBranch.newSkill,
-                    timestamp: Date.now()
-                  };
-                  setSkillToasts(prevToasts => [newToast, ...prevToasts]);
-                }
-
-                if (soundEnabled) {
-                  soundManager.playWorldVoiceChime();
-                  soundManager.playLevelUpSound();
-                }
+                shouldPlayLevelSound = true;
               } else if (!resolution.isDominant && resolution.balancedBranches.length > 0) {
-                // BALANCED: Trigger player choice modal for skill!
                 pendingEvoToSet = {
                   id: `skill_evo_pending_${Date.now()}`,
                   type: 'skill',
@@ -727,18 +659,10 @@ export default function App() {
                   triggeredBy: actionText,
                   factorSnapshot: updatedFactors
                 };
-
-                if (soundEnabled) {
-                  soundManager.playWorldVoiceChime();
-                }
-                break; // Stop at first balanced skill to allow user choice
+                break;
               }
             }
           }
-        }
-
-        if (pendingEvoToSet) {
-          setPendingEvolution(pendingEvoToSet);
         }
 
         const combinedWVAnnouncements = [
@@ -753,7 +677,6 @@ export default function App() {
         const isEvolutionOrTitle = !!evoAnnouncement || skillEvoAnnouncements.length > 0 || titleAnnouncements.length > 0;
         const isMilestone = isStoryMilestone || isEvolutionOrTitle;
         const isStoryChange = !!turnData.storyUpdate?.canonChangeDescription || !!turnData.storyUpdate?.currentArc;
-        const storyTitle = turnData.storyUpdate?.milestoneUnlocked?.title || (isStoryChange ? turnData.storyUpdate?.currentArc : undefined);
 
         const gmLog: GameLog = {
           id: `log_gm_${Date.now()}`,
@@ -762,11 +685,10 @@ export default function App() {
           worldVoiceAnnouncements: combinedWVAnnouncements.length > 0 ? combinedWVAnnouncements : undefined,
           isMilestone,
           isStoryChange,
-          storyTitle,
+          storyTitle: turnData.storyUpdate?.milestoneUnlocked?.title || (isStoryChange ? turnData.storyUpdate?.currentArc : undefined),
           milestoneTitle: turnData.storyUpdate?.milestoneUnlocked?.title || (isEvolutionOrTitle ? 'Biến Cố Thức Tỉnh & Tiến Hóa' : undefined)
         };
 
-        // Construct Combat Log Entry
         const now = new Date();
         const timestampStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         const actLower = actionText.toLowerCase();
@@ -828,14 +750,23 @@ export default function App() {
           isCombatActive: !!turnData.combatEnemy
         };
       });
+
+      // Thực thi các side-effects bên ngoài setState
+      if (pendingEvoToSet) {
+        setPendingEvolution(pendingEvoToSet);
+        if (soundEnabled) soundManager.playWorldVoiceChime();
+      }
+      if (shouldPlayLevelSound && soundEnabled) {
+        soundManager.playLevelUpSound();
+      }
+
     } catch (error) {
-      console.error("Turn processing error:", error);
+      console.error("Lỗi khi xử lý lượt:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Open Reset & Character Creation Confirmation Modal
   const handleResetGame = () => {
     setShowResetConfirmModal(true);
   };
@@ -879,73 +810,22 @@ export default function App() {
     }
   };
 
-  // Clear old narrative logs keeping the most recent ones
   const handleClearOldGameLogs = () => {
-    setGameState(prev => {
-      if (prev.logs.length <= 5) return prev;
-      const kept = prev.logs.slice(-5);
-      return { ...prev, logs: kept };
-    });
-    setSkillToasts(prev => [
-      ...prev,
-      {
-        id: `toast_clear_gamelog_${Date.now()}`,
-        skill: {
-          id: 'log_notice',
-          name: 'Đã Dọn Dẹp Nhật Ký Cốt Truyện!',
-          category: 'Common',
-          description: 'Hệ thống đã dọn dẹp các mục log cũ và giữ lại 5 lượt cốt truyện gần nhất.',
-          acquiredAt: 1
-        },
-        timestamp: Date.now()
-      }
-    ]);
+    setGameState(prev => (prev.logs.length <= 5 ? prev : { ...prev, logs: prev.logs.slice(-5) }));
   };
 
-  // Clear old combat logs keeping the most recent ones
   const handleClearOldCombatLogs = () => {
     setGameState(prev => {
       if (!prev.combatLogs || prev.combatLogs.length <= 8) return prev;
-      const kept = prev.combatLogs.slice(-8);
-      return { ...prev, combatLogs: kept };
+      return { ...prev, combatLogs: prev.combatLogs.slice(-8) };
     });
-    setSkillToasts(prev => [
-      ...prev,
-      {
-        id: `toast_clear_combatlog_${Date.now()}`,
-        skill: {
-          id: 'log_notice',
-          name: 'Đã Dọn Dẹp Nhật Ký Chiến Đấu!',
-          category: 'Common',
-          description: 'Hệ thống đã dọn dẹp các lượt combat cũ và giữ lại 8 hiệp giao tranh gần nhất.',
-          acquiredAt: 1
-        },
-        timestamp: Date.now()
-      }
-    ]);
   };
 
-  // Export full game & combat logs to text file download
   const handleExportAllLogs = () => {
     if (!gameState.character) return;
     exportLogsToText(gameState.character, gameState.logs, gameState.combatLogs || []);
-    setSkillToasts(prev => [
-      ...prev,
-      {
-        id: `toast_export_log_${Date.now()}`,
-        skill: {
-          id: 'export_notice',
-          name: 'Đã Xuất File Nhật Ký Hành Trình (.TXT)!',
-          category: 'Extra',
-          description: 'Tệp nhật ký Tensura đã được tải về thiết bị của bạn thành công.',
-          acquiredAt: 1
-        },
-        timestamp: Date.now()
-      }
-    ]);
   };
 
-  // Render Character Creation if not initialized
   if (!gameState.isInitialized || !gameState.character) {
     return (
       <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-slate-100 flex flex-col justify-center">
@@ -956,7 +836,7 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-200 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
-      {/* Header matching Geometric Balance */}
+      {/* Dynamic Header */}
       <header className="h-11 sm:h-12 bg-slate-900 border-b border-cyan-500/30 flex items-center justify-between px-2.5 sm:px-4 md:px-6 shrink-0 z-30">
         <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.6)] shrink-0 animate-pulse" />
@@ -968,7 +848,6 @@ export default function App() {
         <div className="flex items-center space-x-1.5 sm:space-x-2 text-[10px] md:text-xs font-mono text-cyan-400/70 shrink-0">
           <span className="hidden xl:inline">LATENCY: 0.002ms</span>
 
-          {/* Quick Header Controls */}
           <div className="flex items-center gap-1 sm:gap-1.5">
             <button
               onClick={() => setShowStoryModal(true)}
@@ -1017,7 +896,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Top Mobile Status Ribbon (<lg screens) */}
+      {/* Mobile Status Bar */}
       <MobileHUDBar
         character={gameState.character}
         location={gameState.location}
@@ -1025,13 +904,11 @@ export default function App() {
         onOpenSkillLibrary={() => setShowSkillLibraryModal(true)}
       />
 
-      {/* Main Grid Content - Responsive multi-column layout strictly fit within viewport */}
+      {/* Main Grid Body */}
       <main className="flex-1 min-h-0 max-w-7xl 2xl:max-w-[1750px] w-full mx-auto p-1.5 sm:p-2.5 md:p-3 pb-16 lg:pb-1.5 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 overflow-hidden">
-        {/* Central Game Section (8 cols on desktop) */}
+        {/* Left / Main Interactive Area */}
         <section className="lg:col-span-8 xl:col-span-8 h-full min-h-0 flex flex-col justify-between overflow-hidden gap-1.5 sm:gap-2">
-          {/* Top Status & Controls Row */}
           <div className="shrink-0 space-y-1.5">
-            {/* Current Location Bar */}
             <div className="bg-slate-900/60 border border-slate-800 px-2.5 py-1.5 flex items-center justify-between text-xs font-mono rounded-xs">
               <div className="flex items-center gap-2 text-slate-300 truncate">
                 <Compass className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
@@ -1040,7 +917,6 @@ export default function App() {
               <span className="text-cyan-500/80 shrink-0 font-bold text-[11px]">TURN #{gameState.character.turn}</span>
             </div>
 
-            {/* Main Saga Story Banner */}
             {gameState.storyState && (
               <StoryBanner
                 storyState={gameState.storyState}
@@ -1048,12 +924,10 @@ export default function App() {
               />
             )}
 
-            {/* Combat Card if enemy present */}
             {gameState.currentEnemy && (
               <CombatCard enemy={gameState.currentEnemy} onAction={handleAction} />
             )}
 
-            {/* Log Panel View Mode Switcher Header */}
             <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 px-2 py-1 font-mono text-xs rounded-xs">
               <div className="flex items-center space-x-1">
                 <button
@@ -1099,7 +973,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Log Panel Renderings Filling Remaining Height */}
           <div className="flex-1 min-h-0 overflow-hidden">
             {logViewMode === 'narrative' && (
               <GameLogPanel
@@ -1133,9 +1006,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Action Control Panel at Bottom */}
           <div ref={actionSectionRef} className="shrink-0 space-y-1.5 pt-1.5 border-t border-slate-800/80 bg-slate-950/90">
-            {/* Game Master Suggested Actions */}
             <div className="space-y-1">
               <p className="text-[9px] font-mono text-cyan-400 uppercase tracking-wider flex items-center gap-1">
                 <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> HÀNH ĐỘNG GỢI Ý TỪ SYSTEM:
@@ -1155,7 +1026,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Grid 4 Quick Action Buttons matching Geometric Balance specification */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] font-bold uppercase font-mono">
               <button
                 disabled={isLoading}
@@ -1190,7 +1060,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Free Text Input */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1222,13 +1091,12 @@ export default function App() {
           </div>
         </section>
 
-        {/* Status Board Sidebar Column (4 cols on desktop) */}
+        {/* Right Status Sidebar */}
         <section className="hidden lg:flex lg:col-span-4 xl:col-span-4 h-full min-h-0 flex-col overflow-hidden">
           <StatusBoard character={gameState.character} onEquipTitle={handleEquipTitle} />
         </section>
       </main>
 
-      {/* Footer matching Geometric Balance */}
       <footer className="hidden lg:flex h-6 bg-cyan-900/10 border-t border-slate-800/80 items-center px-4 shrink-0 z-30">
         <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
           <div className="w-1/3 h-full bg-cyan-500" />
@@ -1238,7 +1106,7 @@ export default function App() {
         </span>
       </footer>
 
-      {/* Mobile Quick Dock Bar (<lg screens) */}
+      {/* Mobile Navigation Dock */}
       <MobileQuickDock
         logViewMode={logViewMode}
         onSelectLogMode={(mode) => setLogViewMode(mode)}
@@ -1250,17 +1118,15 @@ export default function App() {
         isInCombat={!!gameState.currentEnemy}
       />
 
-      {/* World Voice Skill Toast Notification */}
+      {/* Dynamic Overlay Elements */}
       <SkillToastNotification toasts={skillToasts} onDismiss={handleDismissToast} />
 
-      {/* Low HP/MP Danger Alert Popup */}
       <LowResourceWarningPopup
         character={gameState.character}
         soundEnabled={soundEnabled}
         onUseRecoverySkill={() => handleAction("Sử dụng kỹ năng hấp thu Cỏ Hipokute hồi phục HP và MP cấp tốc")}
       />
 
-      {/* Main Story Modal */}
       {gameState.storyState && (
         <MainStoryModal
           storyState={gameState.storyState}
@@ -1269,14 +1135,12 @@ export default function App() {
         />
       )}
 
-      {/* Tensura Skill Library Modal */}
       <SkillLibraryModal
         skills={gameState.character.skills}
         isOpen={showSkillLibraryModal}
         onClose={() => setShowSkillLibraryModal(false)}
       />
 
-      {/* Dynamic Evolution Choice Modal (Triggered when multi-path factors are balanced) */}
       {pendingEvolution && (
         <EvolutionChoiceModal
           pendingEvolution={pendingEvolution}
@@ -1285,7 +1149,6 @@ export default function App() {
         />
       )}
 
-      {/* Mobile Status Modal */}
       {showStatusModal && (
         <StatusBoard
           character={gameState.character}
@@ -1295,7 +1158,7 @@ export default function App() {
         />
       )}
 
-      {/* Reset & New Character Confirmation Modal */}
+      {/* Confirmation Reset Modal */}
       {showResetConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-fade-in font-sans">
           <div className="w-full max-w-md bg-slate-950 border-2 border-rose-500/80 p-5 rounded-xs shadow-[0_0_40px_rgba(244,63,94,0.25)] space-y-4 text-slate-200">
@@ -1327,9 +1190,6 @@ export default function App() {
                 <p className="text-slate-300 font-sans text-xs">
                   Toàn bộ <strong className="text-amber-300 font-mono">{gameState.character.skills.length} kỹ năng</strong> đã học sẽ được trích xuất và <strong className="text-emerald-400">LƯU VĨNH VIỄN</strong> vào <strong className="text-cyan-300">Thư Viện Từ Điển Kỹ Năng</strong>!
                 </p>
-                <p className="text-[10px] text-slate-400 italic">
-                  * Các nhân vật tạo mới trong tương lai có thể tra cứu và kế thừa tri thức từ điển kiếp trước.
-                </p>
               </div>
             </div>
 
@@ -1355,7 +1215,7 @@ export default function App() {
   );
 }
 
-// Client-side fallback turn generator if server endpoint returns non-JSON or HTML
+// Fallback lượt chơi ở Client khi Server gặp lỗi
 function generateClientFallbackTurn(
   character: CharacterStatus,
   actionText: string,
@@ -1407,4 +1267,3 @@ function generateClientFallbackTurn(
     storyUpdate
   };
 }
-
