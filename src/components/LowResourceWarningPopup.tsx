@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CharacterStatus } from '../types';
-import { AlertTriangle, Heart, Zap, X, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Heart, Zap, X, Sparkles } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 
 interface Props {
@@ -15,7 +15,10 @@ export const LowResourceWarningPopup: React.FC<Props> = ({
   onUseRecoverySkill
 }) => {
   const [isDismissed, setIsDismissed] = useState(false);
-  const [lastWarningTrigger, setLastWarningTrigger] = useState<string>('');
+  const prevLowStateRef = useRef<{ hpLow: boolean; mpLow: boolean }>({
+    hpLow: false,
+    mpLow: false
+  });
 
   if (!character) return null;
 
@@ -23,36 +26,40 @@ export const LowResourceWarningPopup: React.FC<Props> = ({
   const mpRatio = character.maxMp > 0 ? character.mp / character.maxMp : 1;
 
   const isHpLow = hpRatio <= 0.20 && character.hp > 0;
-  const isMpLow = mpRatio <= 0.20;
+  const isMpLow = mpRatio <= 0.20 && character.mp < character.maxMp;
 
-  const warningKey = `${isHpLow ? 'HP_LOW' : ''}_${isMpLow ? 'MP_LOW' : ''}_${Math.floor(character.hp)}_${Math.floor(character.mp)}`;
-
-  // Automatically show popup when HP or MP drops below 20% anew
+  // Tự động kích hoạt thông báo & phát âm thanh chỉ khi TRẠNG THÁI NGUY CẤP MỚI XẢY RA
   useEffect(() => {
-    if ((isHpLow || isMpLow) && warningKey !== lastWarningTrigger) {
-      setIsDismissed(false);
-      setLastWarningTrigger(warningKey);
+    const prev = prevLowStateRef.current;
+    const newlyHpLow = isHpLow && !prev.hpLow;
+    const newlyMpLow = isMpLow && !prev.mpLow;
+
+    if (newlyHpLow || newlyMpLow) {
+      setIsDismissed(false); // Mở lại popup nếu có nguy cơ mới xuất hiện
       if (soundEnabled) {
         soundManager.playDangerWarningSound();
       }
     }
-  }, [isHpLow, isMpLow, warningKey, lastWarningTrigger, soundEnabled]);
 
-  // If resources are restored above 20%, reset dismissed state
+    // Cập nhật ref để theo dõi trạng thái trước đó
+    prevLowStateRef.current = { hpLow: isHpLow, mpLow: isMpLow };
+  }, [isHpLow, isMpLow, soundEnabled]);
+
+  // Reset trạng thái dismissed khi nhân vật đã phục hồi hoàn toàn trên 20%
   useEffect(() => {
     if (!isHpLow && !isMpLow) {
       setIsDismissed(false);
-      setLastWarningTrigger('');
     }
   }, [isHpLow, isMpLow]);
 
+  // Nếu không nguy cấp hoặc người chơi đã chủ động bấm đóng -> Không hiển thị
   if ((!isHpLow && !isMpLow) || isDismissed) return null;
 
   const hpPercent = Math.round(hpRatio * 100);
   const mpPercent = Math.round(mpRatio * 100);
 
   return (
-    <div className="fixed bottom-20 right-4 sm:right-6 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-96 animate-bounce-short font-sans">
+    <div className="fixed bottom-20 right-4 sm:right-6 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-96 font-sans transition-all animate-fade-in">
       <div className="bg-slate-950/95 border-2 border-rose-500/90 rounded-xs shadow-[0_0_30px_rgba(244,63,94,0.4)] p-4 text-slate-100 backdrop-blur-md relative overflow-hidden space-y-3">
         {/* Animated warning background pulse */}
         <div className="absolute inset-0 bg-rose-950/20 animate-pulse pointer-events-none" />
@@ -91,7 +98,7 @@ export const LowResourceWarningPopup: React.FC<Props> = ({
                   SINH LỰC (HP) NGUY CẤP:
                 </span>
                 <span className="text-rose-200">
-                  {character.hp}/{character.maxHp} ({hpPercent}%)
+                  {Math.max(0, Math.floor(character.hp))}/{character.maxHp} ({hpPercent}%)
                 </span>
               </div>
               <p className="text-[11px] text-rose-200/90 leading-tight">
@@ -108,7 +115,7 @@ export const LowResourceWarningPopup: React.FC<Props> = ({
                   MA LỰC (MP) CẠN KIỆT:
                 </span>
                 <span className="text-amber-200">
-                  {character.mp}/{character.maxMp} ({mpPercent}%)
+                  {Math.max(0, Math.floor(character.mp))}/{character.maxMp} ({mpPercent}%)
                 </span>
               </div>
               <p className="text-[11px] text-amber-200/90 leading-tight">
