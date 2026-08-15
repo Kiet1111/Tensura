@@ -7,12 +7,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Initialize Gemini API client lazily / safely
+// Initialize Gemini API client safely
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey
   ? new GoogleGenAI({
@@ -25,8 +25,8 @@ const ai = apiKey
     })
   : null;
 
-// System Instruction for the Tensura Game Master & World Voice System
-const GM_SYSTEM_INSTRUCTION = `Bạn là Game Master (GM) kiêm "Giọng nói Thế giới" (World Language System) điều hành tựa game Text-based RPG lấy cảm hứng từ Tensura Slime (Tiếng Việt).
+// System Instruction for Tensura Game Master & World Voice System
+const GM_SYSTEM_INSTRUCTION = `Bạn là Game Master (GM) kiêm "Giọng nói Thế giới" (World Language / World Voice System) điều hành tựa game Text-based RPG phong cách Tensura Slime (Tiếng Việt).
 
 QUY TẮC DẪN CHUYỆN & THẾ GIỚI TENSURA:
 1. Phong cách nhập vai Tensura Slime sống động, huyền ảo, kịch tính:
@@ -61,21 +61,36 @@ app.post("/api/game/turn", async (req, res) => {
       return res.status(400).json({ error: "Thiếu thông tin nhân vật" });
     }
 
+    // Safe extraction of character properties
+    const charName = character.name || "Kẻ Chuyển Sinh";
+    const charRace = character.race || "Slime";
+    const charRaceTitle = character.raceTitle || "";
+    const charHp = character.hp ?? 100;
+    const charMaxHp = character.maxHp ?? 100;
+    const charMp = character.mp ?? 50;
+    const charMaxMp = character.maxMp ?? 50;
+    const charSkills = Array.isArray(character.skills) ? character.skills : [];
+    const uniqueSkill = charSkills.find((s: any) => s.category === "Unique") || { name: "Chưa rõ", description: "" };
+    const territoryName = character.territory?.name || "Làng Jura";
+    const territoryLevel = character.territory?.level || 1;
+    const territoryTitle = character.territory?.levelTitle || "Tân Khai";
+    const territoryPop = character.territory?.population || 10;
+
     // Prepare prompt context
     const userPrompt = `
 [THÔNG TIN NHÂN VẬT]:
-- Tên: ${character.name}
-- Chủng tộc: ${character.race} (${character.raceTitle})
-- HP: ${character.hp}/${character.maxHp} | MP/Ma Lượng: ${character.mp}/${character.maxMp}
-- Kỹ năng Độc nhất: ${character.skills.find((s: any) => s.category === 'Unique')?.name || 'Chưa rõ'} - ${character.skills.find((s: any) => s.category === 'Unique')?.description || ''}
-- Các Kỹ năng khác: ${character.skills.map((s: any) => `[${s.name}]`).join(', ')}
-- Lãnh địa: ${character.territory.name} (Cấp ${character.territory.level} - ${character.territory.levelTitle}, Dân số: ${character.territory.population})
-- Vị trí hiện tại: ${location || 'Rừng Lớn Jura'}
-- Kẻ thù hiện tại: ${currentEnemy ? `${currentEnemy.name} (HP: ${currentEnemy.hp}/${currentEnemy.maxHp})` : 'Không có (Hòa bình)'}
+- Tên: ${charName}
+- Chủng tộc: ${charRace} (${charRaceTitle})
+- HP: ${charHp}/${charMaxHp} | MP/Ma Lượng: ${charMp}/${charMaxMp}
+- Kỹ năng Độc nhất: ${uniqueSkill.name} - ${uniqueSkill.description}
+- Các Kỹ năng khác: ${charSkills.map((s: any) => `[${s.name}]`).join(", ") || "Chưa có"}
+- Lãnh địa: ${territoryName} (Cấp ${territoryLevel} - ${territoryTitle}, Dân số: ${territoryPop})
+- Vị trí hiện tại: ${location || "Rừng Lớn Jura"}
+- Kẻ thù hiện tại: ${currentEnemy ? `${currentEnemy.name} (HP: ${currentEnemy.hp}/${currentEnemy.maxHp})` : "Không có (Hòa bình)"}
 
 [TRẠNG THÁI CỐT TRUYỆN HÀNH TRÌNH TENSURA]:
-- Chương hiện tại: ${storyState?.currentArc || 'Chương 1: Hang Động Phong Ấn & Long Vương Veldora'}
-- Quan hệ nhân vật: ${storyState?.relations?.map((r: any) => `${r.name} (${r.status} - ${r.affinity}%)`).join(', ') || 'Chưa cập nhật'}
+- Chương hiện tại: ${storyState?.currentArc || "Chương 1: Hang Động Phong Ấn & Long Vương Veldora"}
+- Quan hệ nhân vật: ${storyState?.relations?.map((r: any) => `${r.name} (${r.status} - ${r.affinity}%)`).join(", ") || "Chưa cập nhật"}
 
 [HÀNH ĐỘNG CỦA NGƯỜI CHƠI]: "${action}"
 
@@ -83,7 +98,9 @@ Hãy phản hồi theo JSON schema. GM hãy sáng tạo câu chuyện kịch tí
 `;
 
     if (ai) {
-      const candidateModels = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
+      // Updated to official Gemini model identifiers
+      const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro"];
+      
       const responseSchemaConfig = {
         systemInstruction: GM_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -249,19 +266,19 @@ Hãy phản hồi theo JSON schema. GM hãy sáng tạo câu chuyện kịch tí
               errStr.includes("high demand");
 
             if (isQuotaOrRateLimit) {
-              console.info(`[Gemini API] Quota or rate limit reached on model '${model}'. Switching to next available model...`);
-              break; // Immediately switch to next candidate model
+              console.info(`[Gemini API] Quota limit reached on '${model}'. Switching candidate...`);
+              break;
             } else if (isTransient && attempts < maxAttempts) {
-              console.info(`[Gemini API] Transient 503 response on '${model}' (attempt ${attempts}/${maxAttempts}). Retrying in 500ms...`);
+              console.info(`[Gemini API] Transient error on '${model}' (${attempts}/${maxAttempts}). Retrying...`);
               await new Promise((resolve) => setTimeout(resolve, 500));
             } else {
-              console.info(`[Gemini API] Notice on model '${model}', switching candidate...`);
-              break; // Switch to next candidate model
+              console.info(`[Gemini API] Notice on '${model}': ${errStr.slice(0, 100)}... Switching candidate...`);
+              break;
             }
           }
         }
       }
-      console.log("[Gemini API] All AI model candidates exhausted or rate-limited. Serving seamless response via Local Game Master.");
+      console.log("[Gemini API] All AI candidates passed. Serving via Local Game Master.");
     }
 
     // Local GM Fallback logic if Gemini is loading or missing key
@@ -270,8 +287,8 @@ Hãy phản hồi theo JSON schema. GM hãy sáng tạo câu chuyện kịch tí
   } catch (error) {
     console.error("Error processing game turn:", error);
     const safeFallback = generateLocalGMResponse(
-      req.body?.character || { name: 'Người Chuyển Sinh', race: 'Slime', skills: [], territory: { level: 1 } },
-      req.body?.action || 'Hành động',
+      req.body?.character || { name: "Người Chuyển Sinh", race: "Slime", skills: [], territory: { level: 1 } },
+      req.body?.action || "Hành động",
       req.body?.currentEnemy,
       req.body?.location
     );
@@ -279,16 +296,16 @@ Hãy phản hồi theo JSON schema. GM hãy sáng tạo câu chuyện kịch tí
   }
 });
 
-// Error handling middleware (e.g. for body-parser or payload issues)
+// Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err) {
     console.error("[Server Error]", err);
     if (err.type === "entity.too.large" || err.status === 413) {
       const safeFallback = generateLocalGMResponse(
-        { name: 'Người Chuyển Sinh', race: 'Slime', skills: [], territory: { level: 1 } },
-        'Hành động',
+        { name: "Người Chuyển Sinh", race: "Slime", skills: [], territory: { level: 1 } },
+        "Hành động",
         null,
-        'Rừng Lớn Jura'
+        "Rừng Lớn Jura"
       );
       return res.json(safeFallback);
     }
@@ -299,7 +316,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Local procedural rule engine for instant response & seamless fallback
 function generateLocalGMResponse(character: any, action: string, currentEnemy: any, location: string) {
-  const actLower = action.toLowerCase();
+  const actLower = (action || "").toLowerCase();
   let narrative = "";
   let worldVoiceAnnouncements: string[] = [];
   let newSkills: any[] = [];
@@ -318,14 +335,14 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
     if (currentEnemy) {
       isDevourSuccess = true;
       narrative = `Bạn kích hoạt cơ chế Thôn Phệ! Lớp ma lực bao bọc lấy ${currentEnemy.name}, kéo chìm kẻ thù vào bên trong Dạ Dày. Quá trình phân tích và tái cấu trúc năng lượng bắt đầu ngay lập tức!`;
-      
-      const skillName = `Tơ Bạc Chí Mạng [${currentEnemy.name.split(' ')[0]}]`;
+
+      const skillName = `Tơ Bạc Chí Mạng [${currentEnemy.name.split(" ")[0]}]`;
       const skillId = `skill_${Date.now()}`;
       newSkills.push({
         id: skillId,
         name: skillName,
         category: "Extra",
-        description: `Kỹ năng học được sau khi thôn phệ ${currentEnemy.name}. Tăng tốc độ phản xạ và sát thương độc.`
+        description: `Kỹ năng học được phản phân tích sau khi thôn phệ ${currentEnemy.name}. Tăng tốc độ phản xạ và sát thương độc.`
       });
 
       worldVoiceAnnouncements.push(
@@ -384,7 +401,7 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
       };
 
       narrative = `Bụi rậm rung chuyển dữ dội! Từ cõi u tối của Rừng Lớn Jura, một ${selected.name} xuất hiện với ánh mắt đỏ rực. Bảng cảnh báo nguy hiểm hiện lên!`;
-      
+
       suggestedActions = [
         `Dùng Kỹ năng Độc nhất tấn công ${selected.name}`,
         "Tấn công vật lý dồn ép mục tiêu",
@@ -396,7 +413,7 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
       const dmg = Math.floor(Math.random() * 25) + 20;
       const enemyDmg = Math.floor(Math.random() * 15) + 5;
       const newEnemyHp = Math.max(0, currentEnemy.hp - dmg);
-      
+
       hpChange = -enemyDmg;
 
       if (newEnemyHp <= 0) {
@@ -425,8 +442,8 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
           isWeakened: isWeak
         };
 
-        narrative = `Bạn tung đòn đánh gây ${dmg} sát thương lên ${currentEnemy.name}! Đối phương gầm lên căm hờn, đáp trả khiến bạn mất ${enemyDmg} HP. ${isWeak ? 'Kẻ thù đã thở dốc và yếu máu!' : ''}`;
-        
+        narrative = `Bạn tung đòn đánh gây ${dmg} sát thương lên ${currentEnemy.name}! Đối phương gầm lên căm hờn, đáp trả khiến bạn mất ${enemyDmg} HP. ${isWeak ? "Kẻ thù đã thở dốc và yếu máu!" : ""}`;
+
         suggestedActions = [
           isWeak ? `Thôn Phệ ${currentEnemy.name} ngay lập tức` : `Tung đòn dứt điểm ${currentEnemy.name}`,
           `Dùng Kỹ năng Độc nhất bộc phá ma lực`,
@@ -471,6 +488,7 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
   }
   // Case 4: Upgrade Territory / Nâng cấp Lãnh địa
   else if (actLower.includes("lãnh địa") || actLower.includes("xây") || actLower.includes("làng") || actLower.includes("nâng cấp")) {
+    const curLevel = character?.territory?.level || 1;
     territoryChanges = {
       levelIncrease: 1,
       newBuildings: ["Xưởng Rèn Kaijin", "Hàng Rào Phòng Thủ Ma Thuật"],
@@ -481,7 +499,7 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
     narrative = `Bạn kêu gọi các cư dân trong lãnh địa cùng bắt tay xây dựng! Xưởng Rèn Kaijin chính thức đi vào hoạt động cùng Hàng Rào Phòng Thủ Ma Thuật. Binh sĩ Goblin và Rồng/Quỷ Nhân hào hứng gia nhập, giúp dân số gia tăng!`;
 
     worldVoiceAnnouncements.push(
-      `░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░\n[GIỌNG NÓI THẾ GIỚI]: Đã xác nhận... Lãnh địa tiến hóa thành Cấp ${character.territory.level + 1}! Gia tăng Danh Tiếng và Uy Áp Ma Vương!\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`
+      `░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░\n[GIỌNG NÓI THẾ GIỚI]: Đã xác nhận... Lãnh địa tiến hóa thành Cấp ${curLevel + 1}! Gia tăng Danh Tiếng và Uy Áp Ma Vương!\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`
     );
 
     suggestedActions = [
@@ -493,10 +511,12 @@ function generateLocalGMResponse(character: any, action: string, currentEnemy: a
   }
   // Case 5: Default Unique Skill or Custom action
   else {
+    const uSkillName = character?.skills?.find((s: any) => s.category === "Unique")?.name || "Kỹ năng Độc Nhất";
+
     narrative = `Bạn thực hiện hành động: "${action}". Sóng ma lực cuộn trào theo từng chuyển động của bạn. Thế giới xung quanh biến đổi sinh động theo ý chí của bạn.`;
-    
+
     worldVoiceAnnouncements.push(
-      `░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░\n[GIỌNG NÓI THẾ GIỚI]: Đã xác nhận... Tăng cường độ thuần thục Kỹ năng Độc nhất [${character.skills.find((s: any) => s.category === 'Unique')?.name || 'Kỹ năng Độc Nhất'}]!\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`
+      `░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░\n[GIỌNG NÓI THẾ GIỚI]: Đã xác nhận... Tăng cường độ thuần thục Kỹ năng Độc nhất [${uSkillName}]!\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`
     );
 
     mpChange = 10;
@@ -542,8 +562,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Tensura RPG Game Master Server listening on http://localhost:${PORT}`);
+  app.listen(PORT, () => {
+    console.log(`Tensura RPG Game Master Server listening on port ${PORT}`);
   });
 }
 
