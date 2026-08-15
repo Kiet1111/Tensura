@@ -1,4 +1,17 @@
-import { Skill } from '../types';
+import { Skill, SkillCategory } from '../types';
+
+export const TENSURA_CATEGORY_METADATA: Record<SkillCategory, { name: string; color: string }> = {
+  [SkillCategory.COMMON]: { name: 'Kỹ năng Thường', color: 'bg-gray-600' },
+  [SkillCategory.EXTRA]: { name: 'Kỹ năng Tác Biệt', color: 'bg-green-600' },
+  [SkillCategory.UNIQUE]: { name: 'Kỹ năng Độc Nhất', color: 'bg-purple-600' },
+  [SkillCategory.ULTIMATE]: { name: 'Kỹ năng Tối Thượng', color: 'bg-amber-600' },
+  [SkillCategory.ORIGIN]: { name: 'Kỹ năng Nguyên Thủy', color: 'bg-red-600' },
+};
+
+export function getSkillClassification(skill: Skill): string {
+  if (!skill) return 'Chưa xác định';
+  return TENSURA_CATEGORY_METADATA[skill.category]?.name || 'Kỹ năng';
+}
 
 export function getSkillProgress(skill: Skill): number {
   if (!skill) return 0;
