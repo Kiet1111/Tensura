@@ -20,7 +20,7 @@ export interface CategoryInfo {
   };
 }
 
-export const TENSURA_CATEGORY_METADATA: Record<SkillCategory, CategoryInfo> = {
+export const TENSURA_CATEGORY_METADATA: Readonly<Record<SkillCategory, CategoryInfo>> = Object.freeze({
   Common: {
     category: 'Common',
     vietnameseTitle: 'Kỹ Năng Thông Thường',
@@ -192,16 +192,16 @@ export const TENSURA_CATEGORY_METADATA: Record<SkillCategory, CategoryInfo> = {
       glow: 'shadow-[0_0_12px_rgba(59,130,246,0.25)]'
     }
   }
-};
+});
 
-// Canon Sub-skills database for famous Tensura skills
-export const CANON_SKILL_SUBABILITIES: Record<string, {
+// Cơ sở dữ liệu Sub-skills chuẩn Tensura Canon
+export const CANON_SKILL_SUBABILITIES: Readonly<Record<string, {
   japaneseName?: string;
   lordConcept?: string;
   category?: SkillCategory;
   evolutionLine?: string;
   subSkills: SubSkill[];
-}> = {
+}>> = Object.freeze({
   'predator': {
     japaneseName: '捕食者 (Predator)',
     category: 'Unique',
@@ -260,7 +260,7 @@ export const CANON_SKILL_SUBABILITIES: Record<string, {
       { name: 'Tự Ngã Linh Hồn (Independent Ego)', description: 'Ý thức độc lập hoàn chỉnh với cảm xúc, tư duy vượt trên mọi giới hạn tính toán của thế giới.', type: 'Bị động', attribute: 'Quy luật', mpCost: 0 },
       { name: 'Tối Ưu Hóa & Sáng Tạo Quyền Năng (Skill Optimization & Creation)', description: 'Tự động dung hợp, tái cấu trúc và khai phá các Ultimate Skill mới cho chủ nhân.', type: 'Chủ động', attribute: 'Quy luật', mpCost: 0 },
       { name: 'Quản Lý Hạch Tâm Linh Hồn (Soul Line Governance)', description: 'Bảo hộ tuyệt đối linh hồn chủ nhân khỏi mọi sự can thiệp từ quy luật vũ trụ.', type: 'Bị động', attribute: 'Phòng thủ', mpCost: 0 },
-      { name: 'Dự Toán Đa Chiều (Multidimensional Calculation)', description: 'Tính toán trước mọi diễn biến tương lai và phản xạ đòn tấn công trước khi xảy ra.', type: 'Bị động', attribute: 'Hỗ trợ', mpCost: 0 }
+      { name: 'Dự Toán Đa Chiều (Multidimensional Calculation)', description: 'Tính toán trước mọi diễn biến tương tương lai và phản xạ đòn tấn công trước khi xảy ra.', type: 'Bị động', attribute: 'Hỗ trợ', mpCost: 0 }
     ]
   },
   'uriel': {
@@ -283,10 +283,10 @@ export const CANON_SKILL_SUBABILITIES: Record<string, {
       { name: 'Phân Tách (Separation)', description: 'Tách rời các thuộc tính hoặc thành phần cấu tạo của kỹ năng/vật thể.', type: 'Chủ động', attribute: 'Hỗ trợ', mpCost: 20 }
     ]
   }
-};
+});
 
 /**
- * Returns canon Tensura evolution potential recommendation for a given skill
+ * Gợi ý tiềm năng tiến hóa dựa trên chuẩn Tensura Canon
  */
 export function getSkillEvolutionPotential(skill: Skill): string {
   if (skill.evolvesTo) {
@@ -302,26 +302,24 @@ export function getSkillEvolutionPotential(skill: Skill): string {
   const nameLower = skill.name.toLowerCase();
   const idLower = (skill.id || '').toLowerCase();
 
-  // Check canon database evolution line
   for (const [key, data] of Object.entries(CANON_SKILL_SUBABILITIES)) {
-    if (idLower.includes(key) || nameLower.includes(key) || (data.japaneseName && skill.japaneseName && skill.japaneseName.includes(data.japaneseName.split(' ')[0]))) {
+    if (idLower.includes(key) || nameLower.includes(key)) {
       if (data.evolutionLine) {
         return `Tiềm năng tiến hóa: ${data.evolutionLine}`;
       }
     }
   }
 
-  // Specific canonical skills
-  if (nameLower.includes('đại hiền triết') || nameLower.includes('great sage') || nameLower.includes('wisdom')) {
+  if (nameLower.includes('đại hiền triết') || nameLower.includes('great sage')) {
     return 'Có thể tiến hóa thành: [Trí Huệ Chi Vương Raphael (Ultimate Skill)] → [Thần Trí Thể Ciel (Manas)]';
   }
-  if (nameLower.includes('kẻ săn mồi') || nameLower.includes('săn mồi') || nameLower.includes('predator')) {
+  if (nameLower.includes('săn mồi') || nameLower.includes('predator')) {
     return 'Có thể tiến hóa thành: [Bạo Thực Chi Vương Beelzebuth (Ultimate Skill)] → [Hư Không Chi Thần Azathoth]';
   }
-  if (nameLower.includes('kẻ phàm ăn') || nameLower.includes('gluttony') || nameLower.includes('phàm ăn')) {
+  if (nameLower.includes('phàm ăn') || nameLower.includes('gluttony')) {
     return 'Có thể hợp nhất với [Kẻ Săn Mồi] thành: [Bạo Thực Chi Vương Beelzebuth (Ultimate Skill)]';
   }
-  if (nameLower.includes('biến dị') || nameLower.includes('biến chất') || nameLower.includes('degenerate')) {
+  if (nameLower.includes('biến dị') || nameLower.includes('degenerate')) {
     return 'Có thể dung hợp vào: [Trí Huệ Chi Vương Raphael (Ultimate Skill)]';
   }
   if (nameLower.includes('vô hạn lao ngục') || nameLower.includes('infinity prison')) {
@@ -345,14 +343,7 @@ export function getSkillEvolutionPotential(skill: Skill): string {
   if (nameLower.includes('tự phục hồi') || nameLower.includes('tái sinh') || nameLower.includes('regeneration')) {
     return 'Có thể tiến hóa thành: [Vô Hạn Tái Sinh (Infinite Regeneration)]';
   }
-  if (nameLower.includes('thao tác trọng lực') || nameLower.includes('gravity')) {
-    return 'Có thể tiến hóa thành: [Thao Tác Không Gian] → [Đoán Bạt Chi Vương Uriel]';
-  }
-  if (nameLower.includes('phóng tơ') || nameLower.includes('sticky steel thread')) {
-    return 'Có thể tiến hóa thành: [Vạn Năng Ti Sợi (Universal Thread)]';
-  }
 
-  // Category based evolution suggestions
   switch (skill.category) {
     case 'Common':
       return 'Có thể tiến hóa thành: [Kỹ Năng Đặc Biệt (Extra Skill)] khi đạt cấp MAX và rèn luyện ma lực.';
@@ -377,6 +368,9 @@ export function getSkillEvolutionPotential(skill: Skill): string {
   }
 }
 
+/**
+ * Tự động phân loại Type, Attribute và MP Cost cho kỹ năng nếu thiếu
+ */
 export function getSkillClassification(skill: Skill): {
   type: SkillType;
   attribute: SkillAttribute;
@@ -384,17 +378,16 @@ export function getSkillClassification(skill: Skill): {
 } {
   let type: SkillType = skill.type || 'Chủ động';
   let attribute: SkillAttribute = skill.attribute || 'Đa dụng';
-  let mpCost = skill.mpCost ?? 0;
+  let mpCost = typeof skill.mpCost === 'number' ? skill.mpCost : 0;
 
   if (skill.type && skill.attribute) {
     return { type: skill.type, attribute: skill.attribute, mpCost };
   }
 
   const name = skill.name.toLowerCase();
-  const desc = skill.description.toLowerCase();
+  const desc = (skill.description || '').toLowerCase();
   const cat = skill.category;
 
-  // Type inference (Chủ động vs Bị động)
   if (!skill.type) {
     if (
       cat === 'Resistance' ||
@@ -408,13 +401,10 @@ export function getSkillClassification(skill: Skill): {
       name.includes('đại trí thức') ||
       name.includes('tư duy') ||
       name.includes('tự động') ||
-      name.includes('thân thể') ||
-      name.includes('cơ thể') ||
       name.includes('miễn dịch') ||
       name.includes('ciel') ||
       desc.includes('bị động') ||
-      desc.includes('tự động') ||
-      desc.includes('liên tục')
+      desc.includes('tự động')
     ) {
       type = 'Bị động';
     } else {
@@ -422,7 +412,6 @@ export function getSkillClassification(skill: Skill): {
     }
   }
 
-  // Attribute inference (Tấn công vs Phòng thủ vs Hỗ trợ vs Đa dụng vs Quy luật)
   if (!skill.attribute) {
     if (cat === 'Ultimate' || cat === 'Manas' || name.includes('quy luật') || name.includes('vô hạn')) {
       attribute = 'Quy luật';
@@ -434,25 +423,17 @@ export function getSkillClassification(skill: Skill): {
       name.includes('bảo vệ') ||
       name.includes('phòng ngự') ||
       name.includes('rào chắn') ||
-      desc.includes('phòng thủ') ||
-      desc.includes('giảm sát thương')
+      desc.includes('phòng thủ')
     ) {
       attribute = 'Phòng thủ';
     } else if (
       cat === 'Arts' ||
       name.includes('săn mồi') ||
       name.includes('thôn phệ') ||
-      name.includes('hỏa') ||
-      name.includes('băng') ||
-      name.includes('sét') ||
       name.includes('chém') ||
-      name.includes('liệt') ||
-      name.includes('kiếm') ||
       name.includes('đạn') ||
       name.includes('bão') ||
-      name.includes('độc') ||
       desc.includes('sát thương') ||
-      desc.includes('tiêu diệt') ||
       desc.includes('tấn công')
     ) {
       attribute = 'Tấn công';
@@ -460,16 +441,9 @@ export function getSkillClassification(skill: Skill): {
       name.includes('tri thức') ||
       name.includes('đại hiền triết') ||
       name.includes('phân tích') ||
-      name.includes('phục hồi') ||
       name.includes('hồi phục') ||
-      name.includes('chế tạo') ||
-      name.includes('tạo vật') ||
-      name.includes('dạ dày') ||
-      name.includes('tốc độ') ||
       name.includes('gia tốc') ||
-      desc.includes('hỗ trợ') ||
-      desc.includes('phân tích') ||
-      desc.includes('tăng tốc')
+      desc.includes('hỗ trợ')
     ) {
       attribute = 'Hỗ trợ';
     } else {
@@ -477,25 +451,25 @@ export function getSkillClassification(skill: Skill): {
     }
   }
 
-  // Estimate MP Cost if active and not set
   if (type === 'Chủ động' && mpCost === 0) {
-    if (cat === 'Manas') mpCost = 0; // Manas operates at 100% efficiency
+    if (cat === 'Manas') mpCost = 0;
     else if (cat === 'Ultimate') mpCost = 80;
     else if (cat === 'Unique') mpCost = 40;
     else if (cat === 'Magic') mpCost = 30;
-    else if (cat === 'Arts') mpCost = 20;
-    else if (cat === 'Extra') mpCost = 20;
+    else if (cat === 'Arts' || cat === 'Extra') mpCost = 20;
     else mpCost = 10;
   }
 
   return { type, attribute, mpCost };
 }
 
-// Get sub-skills or enrich standard Tensura skills
+/**
+ * Bổ sung và làm giàu thông tin kỹ năng từ Canon Database (Deduplicate Sub-skills)
+ */
 export function getEnrichedSkillDetails(skill: Skill): Skill {
   const nameLower = skill.name.toLowerCase();
   let foundCanonKey = Object.keys(CANON_SKILL_SUBABILITIES).find(key => nameLower.includes(key));
-  
+
   if (!foundCanonKey) {
     if (nameLower.includes('săn mồi') || nameLower.includes('thôn phệ')) foundCanonKey = 'predator';
     else if (nameLower.includes('hiền triết') || nameLower.includes('đại hiền')) foundCanonKey = 'great sage';
@@ -508,21 +482,23 @@ export function getEnrichedSkillDetails(skill: Skill): Skill {
 
   const canon = foundCanonKey ? CANON_SKILL_SUBABILITIES[foundCanonKey] : null;
 
-  const subSkills: SubSkill[] = skill.subSkills && skill.subSkills.length > 0
+  // Lấy subSkills hiện tại hoặc mặc định từ Canon Database
+  const rawSubSkills = (skill.subSkills && skill.subSkills.length > 0)
     ? skill.subSkills
-    : canon?.subSkills || generateDefaultSubSkills(skill);
+    : (canon?.subSkills || generateDefaultSubSkills(skill));
 
-  const japaneseName = skill.japaneseName || canon?.japaneseName;
-  const lordConcept = skill.lordConcept || canon?.lordConcept;
-  const evolutionLine = skill.evolutionLine || canon?.evolutionLine;
+  // Loại bỏ các sub-skill trùng tên
+  const subSkillMap = new Map<string, SubSkill>();
+  rawSubSkills.forEach(sub => subSkillMap.set(sub.name, sub));
+  const subSkills = Array.from(subSkillMap.values());
 
   return {
     ...skill,
-    japaneseName,
-    lordConcept,
-    evolutionLine,
+    japaneseName: skill.japaneseName || canon?.japaneseName,
+    lordConcept: skill.lordConcept || canon?.lordConcept,
+    evolutionLine: skill.evolutionLine || canon?.evolutionLine,
     subSkills,
-    isManas: skill.category === 'Manas' || skill.isManas
+    isManas: skill.category === 'Manas' || Boolean(skill.isManas)
   };
 }
 
@@ -533,22 +509,14 @@ function generateDefaultSubSkills(skill: Skill): SubSkill[] {
   if (cat === 'Unique') {
     return [
       { name: `Bản Thể: ${name}`, description: `Quyền năng cốt lõi thể hiện ý chí và bản chất của ${name}.`, type: 'Chủ động', attribute: 'Đa dụng', mpCost: 20 },
-      { name: `Cảm Tri Linh Lực`, description: `Khả năng nhận biết và cộng hưởng với luồng ma lực tương thích.`, type: 'Bị động', attribute: 'Hỗ trợ', mpCost: 0 },
-      { name: `Tăng Cường Năng Lực`, description: `Gia tăng uy lực khi thi triển các đòn thế mang tính biểu tượng.`, type: 'Chủ động', attribute: 'Tấn công', mpCost: 15 }
+      { name: `Cảm Tri Linh Lực`, description: `Khả năng nhận biết và cộng hưởng với luồng ma lực tương thích.`, type: 'Bị động', attribute: 'Hỗ trợ', mpCost: 0 }
     ];
   }
 
   if (cat === 'Ultimate') {
     return [
       { name: `Thao Túng Quy Luật [${name}]`, description: `Tác động trực tiếp và bẻ cong quy luật vật lý/ma pháp của thế giới.`, type: 'Chủ động', attribute: 'Quy luật', mpCost: 50 },
-      { name: `Tuyệt Đối Phòng Ngự Không Gian`, description: `Vô hiệu hóa toàn bộ các đòn tấn công dưới cấp Ultimate.`, type: 'Bị động', attribute: 'Phòng thủ', mpCost: 0 },
-      { name: `Cộng Hưởng Hư Không`, description: `Hấp thu và chuyển hóa ma lượng vũ trụ để bù đắp tiêu hao tức thời.`, type: 'Bị động', attribute: 'Hỗ trợ', mpCost: 0 }
-    ];
-  }
-
-  if (cat === 'Intrinsic') {
-    return [
-      { name: `Bản Năng Chủng Tộc`, description: `Năng lực bẩm sinh tự động kích hoạt giúp thích nghi môi trường khắc nghiệt.`, type: 'Bị động', attribute: 'Phòng thủ', mpCost: 0 }
+      { name: `Tuyệt Đối Phòng Ngự Không Gian`, description: `Vô hiệu hóa toàn bộ các đòn tấn công dưới cấp Ultimate.`, type: 'Bị động', attribute: 'Phòng thủ', mpCost: 0 }
     ];
   }
 
@@ -579,10 +547,10 @@ export interface SkillProgressInfo {
 }
 
 export function getSkillProgress(skill: Skill): SkillProgressInfo {
-  const level = skill.level || 1;
+  const level = Math.max(1, skill.level || 1);
   const isMaxLevel = level >= MAX_SKILL_LEVEL;
   const maxExp = skill.maxExp || getSkillMaxExp(level, skill.category);
-  const exp = Math.min(maxExp, skill.exp || 0);
+  const exp = Math.min(maxExp, Math.max(0, skill.exp || 0));
   const percent = isMaxLevel ? 100 : Math.min(100, Math.max(0, Math.round((exp / maxExp) * 100)));
 
   let stageTitle = 'Sơ Cấp';
@@ -602,6 +570,9 @@ export function getSkillProgress(skill: Skill): SkillProgressInfo {
   };
 }
 
+/**
+ * Thêm kinh nghiệm và tự động thăng cấp kỹ năng
+ */
 export function addSkillExp(
   skill: Skill,
   expGained: number
@@ -612,17 +583,20 @@ export function addSkillExp(
   newLevel: number;
   expAdded: number;
 } {
-  let level = skill.level || 1;
+  let level = Math.max(1, skill.level || 1);
   const oldLevel = level;
   let maxExp = skill.maxExp || getSkillMaxExp(level, skill.category);
   let exp = (skill.exp || 0) + expGained;
   let leveledUp = false;
 
-  while (exp >= maxExp && level < MAX_SKILL_LEVEL) {
+  // Giới hạn vòng lặp tối đa 10 lần thăng cấp để phòng tránh Infinite Loop
+  let loopGuard = 0;
+  while (exp >= maxExp && level < MAX_SKILL_LEVEL && loopGuard < 10) {
     exp -= maxExp;
     level += 1;
     leveledUp = true;
     maxExp = getSkillMaxExp(level, skill.category);
+    loopGuard++;
   }
 
   if (level >= MAX_SKILL_LEVEL) {
@@ -647,6 +621,9 @@ export function addSkillExp(
   };
 }
 
+/**
+ * Xử lý tích lũy EXP và thăng cấp kỹ năng theo từng lượt (Turn-based RPG Engine)
+ */
 export function processTurnSkillExp(
   currentSkills: Skill[],
   actionText: string,
@@ -656,8 +633,8 @@ export function processTurnSkillExp(
   updatedSkills: Skill[];
   levelUpAnnouncements: string[];
 } {
-  const actLower = actionText.toLowerCase();
-  const narrLower = narrative.toLowerCase();
+  const actLower = (actionText || '').toLowerCase();
+  const narrLower = (narrative || '').toLowerCase();
   const levelUpAnnouncements: string[] = [];
 
   const updatedSkills = currentSkills.map((skill) => {
@@ -666,24 +643,19 @@ export function processTurnSkillExp(
 
     let expToGain = 0;
 
-    // Check if skill was directly used or referenced
     const isDirectlyNamed = actLower.includes(sNameLower) || narrLower.includes(sNameLower);
-    const isDevourAction = (actLower.includes('thôn phệ') || actLower.includes('nuốt') || narrLower.includes('thôn phệ')) && (sNameLower.includes('săn mồi') || sNameLower.includes('thôn phệ') || sNameLower.includes('gluttony') || sNameLower.includes('predator'));
-    const isAnalysisAction = (actLower.includes('phân tích') || actLower.includes('đại hiền triết') || narrLower.includes('giọng nói')) && (sNameLower.includes('hiền triết') || sNameLower.includes('phân tích') || sNameLower.includes('tri thức'));
+    const isDevourAction = (actLower.includes('thôn phệ') || actLower.includes('nuốt')) && (sNameLower.includes('săn mồi') || sNameLower.includes('thôn phệ') || sNameLower.includes('predator'));
+    const isAnalysisAction = (actLower.includes('phân tích') || actLower.includes('đại hiền triết')) && (sNameLower.includes('hiền triết') || sNameLower.includes('phân tích'));
     const isAttackAction = isCombat && cls.attribute === 'Tấn công';
     const isDefendAction = isCombat && cls.attribute === 'Phòng thủ';
 
     if (isDirectlyNamed || isDevourAction || isAnalysisAction) {
-      // Primary skill used gets high XP (+40 to +60)
       expToGain = Math.floor(Math.random() * 20) + 40;
     } else if (isAttackAction || isDefendAction) {
-      // Combat relevant skills get medium XP (+25 to +35)
       expToGain = Math.floor(Math.random() * 10) + 25;
     } else if (cls.type === 'Bị động' || skill.category === 'Resistance' || skill.category === 'Intrinsic') {
-      // Passive and resistance skills get passive endurance XP (+15 to +25)
       expToGain = Math.floor(Math.random() * 10) + 15;
     } else {
-      // General field presence XP (+10 to +15)
       expToGain = Math.floor(Math.random() * 6) + 10;
     }
 
@@ -703,5 +675,3 @@ export function processTurnSkillExp(
     levelUpAnnouncements
   };
 }
-
-
