@@ -1,6 +1,6 @@
 import { CharacterTitle } from '../types';
 
-export const INITIAL_TITLES: CharacterTitle[] = [
+export const INITIAL_TITLES: ReadonlyArray<CharacterTitle> = Object.freeze([
   {
     id: 'title_reincarnated',
     name: 'Kẻ Tái Sinh Nhập Thế',
@@ -120,13 +120,23 @@ export const INITIAL_TITLES: CharacterTitle[] = [
     },
     requirementHint: 'Đạt Giai Đoạn Tiến Hóa 4 (True Demon Lord Harvest Festival).'
   }
-];
+]);
 
+/**
+ * Khởi tạo danh sách danh hiệu mới (Deep Clone chống ghi đè tham chiếu)
+ */
 export function getInitialTitles(): CharacterTitle[] {
-  return INITIAL_TITLES.map(t => ({ ...t }));
+  return INITIAL_TITLES.map((t) => ({
+    ...t,
+    bonus: { ...t.bonus }
+  }));
 }
 
+/**
+ * Tính tổng chỉ số cộng dồn từ toàn bộ danh hiệu đã mở khóa
+ */
 export function calculateTotalTitleBonuses(titles: CharacterTitle[] = []) {
+  const safeTitles = titles || [];
   const totals = {
     hpBonus: 0,
     mpBonus: 0,
@@ -134,10 +144,10 @@ export function calculateTotalTitleBonuses(titles: CharacterTitle[] = []) {
     defBonus: 0,
     magicBonus: 0,
     unlockedCount: 0,
-    totalCount: titles.length
+    totalCount: safeTitles.length
   };
 
-  titles.forEach(t => {
+  safeTitles.forEach((t) => {
     if (t.unlocked) {
       totals.unlockedCount++;
       if (t.bonus.hpBonus) totals.hpBonus += t.bonus.hpBonus;
@@ -151,7 +161,10 @@ export function calculateTotalTitleBonuses(titles: CharacterTitle[] = []) {
   return totals;
 }
 
-export function getRarityBadgeStyle(rarity: CharacterTitle['rarity']) {
+/**
+ * Trả về style CSS Badge tương ứng với phẩm cấp danh hiệu
+ */
+export function getRarityBadgeStyle(rarity: CharacterTitle['rarity']): string {
   switch (rarity) {
     case 'Ultimate':
       return 'border-purple-500/80 bg-purple-950/60 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]';
