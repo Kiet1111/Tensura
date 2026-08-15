@@ -132,12 +132,22 @@ export function getInitialTitles(): CharacterTitle[] {
   }));
 }
 
+export interface TitleBonusSummary {
+  hpBonus: number;
+  mpBonus: number;
+  atkBonus: number;
+  defBonus: number;
+  magicBonus: number;
+  unlockedCount: number;
+  totalCount: number;
+}
+
 /**
- * Tính tổng chỉ số cộng dồn từ toàn bộ danh hiệu đã mở khóa
+ * Tính tổng chỉ số cộng dồn từ toàn bộ danh hiệu đã mở khóa (Active Passive)
  */
-export function calculateTotalTitleBonuses(titles: CharacterTitle[] = []) {
+export function calculateTotalTitleBonuses(titles: CharacterTitle[] = []): TitleBonusSummary {
   const safeTitles = titles || [];
-  const totals = {
+  const totals: TitleBonusSummary = {
     hpBonus: 0,
     mpBonus: 0,
     atkBonus: 0,
@@ -162,19 +172,106 @@ export function calculateTotalTitleBonuses(titles: CharacterTitle[] = []) {
 }
 
 /**
+ * Tính chỉ số của riêng các danh hiệu đang được TRANG BỊ (Equipped)
+ */
+export function calculateEquippedTitleBonuses(titles: CharacterTitle[] = []): TitleBonusSummary {
+  const safeTitles = titles || [];
+  const totals: TitleBonusSummary = {
+    hpBonus: 0,
+    mpBonus: 0,
+    atkBonus: 0,
+    defBonus: 0,
+    magicBonus: 0,
+    unlockedCount: 0,
+    totalCount: safeTitles.length
+  };
+
+  safeTitles.forEach((t) => {
+    if (t.unlocked && t.isEquipped) {
+      totals.unlockedCount++;
+      if (t.bonus.hpBonus) totals.hpBonus += t.bonus.hpBonus;
+      if (t.bonus.mpBonus) totals.mpBonus += t.bonus.mpBonus;
+      if (t.bonus.atkBonus) totals.atkBonus += t.bonus.atkBonus;
+      if (t.bonus.defBonus) totals.defBonus += t.bonus.defBonus;
+      if (t.bonus.magicBonus) totals.magicBonus += t.bonus.magicBonus;
+    }
+  });
+
+  return totals;
+}
+
+/**
  * Trả về style CSS Badge tương ứng với phẩm cấp danh hiệu
  */
 export function getRarityBadgeStyle(rarity: CharacterTitle['rarity']): string {
   switch (rarity) {
     case 'Ultimate':
-      return 'border-purple-500/80 bg-purple-950/60 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]';
+      return 'border-purple-500/80 bg-purple-950/60 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.35)]';
     case 'Legendary':
       return 'border-amber-500/80 bg-amber-950/60 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]';
     case 'Epic':
       return 'border-cyan-500/80 bg-cyan-950/60 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.3)]';
     case 'Rare':
-      return 'border-emerald-500/80 bg-emerald-950/60 text-emerald-300';
+      return 'border-emerald-500/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.2)]';
     default:
       return 'border-slate-700 bg-slate-900 text-slate-300';
   }
+}
+
+/**
+ * Kiểm tra và tự động mở khóa các Danh Hiệu mới dựa trên chỉ số Game Engine
+ */
+export function checkAndUnlockTitles(
+  currentTitles: CharacterTitle[],
+  gameState: {
+    turnCount: number;
+    divergenceRate: number;
+    evolutionStage: number;
+    territoryLevel?: number;
+    absorbedCount?: number;
+  }
+): {
+  updatedTitles: CharacterTitle[];
+  newUnlockedTitles: CharacterTitle[];
+  announcements: string[];
+} {
+  const newUnlockedTitles: CharacterTitle[] = [];
+  const announcements: string[] = [];
+
+  const updatedTitles = currentTitles.map((title) => {
+    if (title.unlocked) return title;
+
+    let shouldUnlock = false;
+
+    if (title.id === 'title_anomaly_variable' && gameState.divergenceRate >= 25) {
+      shouldUnlock = true;
+    } else if (title.id === 'title_demon_lord_awakened' && gameState.evolutionStage >= 4) {
+      shouldUnlock = true;
+    } else if (title.id === 'title_jura_ruler' && (gameState.territoryLevel || 0) >= 3) {
+      shouldUnlock = true;
+    } else if (title.id === 'title_endless_predator' && (gameState.absorbedCount || 0) >= 5) {
+      shouldUnlock = true;
+    }
+
+    if (shouldUnlock) {
+      const unlockedTitle: CharacterTitle = {
+        ...title,
+        unlocked: true,
+        unlockedAtTurn: gameState.turnCount
+      };
+      newUnlockedTitles.push(unlockedTitle);
+      announcements.push(
+        `░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░\n[GIỌNG NÓI THẾ GIỚI]: Nhận được Danh Hiệu Mới: [${title.name}] (${title.rarity})!\nChỉ số nhận thêm: ${title.bonus.description}\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`
+      );
+      return unlockedTitle;
+    }
+
+    return title;
+  });
+
+  return {
+    updatedTitles,
+    newUnlockedTitles,
+    announcements
+  };
 }
