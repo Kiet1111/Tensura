@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EvolutionBranch, PendingEvolution } from '../types';
 import { FACTOR_METADATA } from '../utils/evolutionEngine';
 import { Sparkles, Crown, Shield, Zap, Swords, Heart, Check, ArrowRight, Dna, Activity } from 'lucide-react';
@@ -16,12 +16,20 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
   onSelectBranch
 }) => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    pendingEvolution.branches[0]?.id || ''
+    pendingEvolution?.branches[0]?.id || ''
   );
+
+  // Cập nhật selectedBranchId mỗi khi pendingEvolution thay đổi
+  useEffect(() => {
+    if (pendingEvolution?.branches?.[0]) {
+      setSelectedBranchId(pendingEvolution.branches[0].id);
+    }
+  }, [pendingEvolution]);
 
   if (!isOpen || !pendingEvolution) return null;
 
-  const selectedBranch = pendingEvolution.branches.find(b => b.id === selectedBranchId) || pendingEvolution.branches[0];
+  const selectedBranch =
+    pendingEvolution.branches.find(b => b.id === selectedBranchId) || pendingEvolution.branches[0];
 
   const handleConfirm = () => {
     if (selectedBranch) {
@@ -31,11 +39,15 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
     }
   };
 
-  const totalFactors = Object.values(pendingEvolution.factorSnapshot).map(Number).reduce((a, b) => a + b, 0) || 1;
+  const totalFactors =
+    Object.values(pendingEvolution.factorSnapshot || {})
+      .map(Number)
+      .reduce((a, b) => a + b, 0) || 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-slate-950/90 backdrop-blur-md animate-fade-in font-sans overflow-y-auto custom-scrollbar">
       <div className="w-full max-w-4xl bg-slate-950 border-2 border-cyan-400/80 shadow-[0_0_50px_rgba(6,182,212,0.35)] rounded-xs overflow-hidden flex flex-col my-auto max-h-[92vh]">
+        
         {/* World Voice Header */}
         <div className="bg-gradient-to-r from-slate-900 via-cyan-950/80 to-slate-900 border-b border-cyan-500/40 p-4 md:p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
@@ -48,15 +60,15 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold tracking-widest px-2 py-0.5 bg-cyan-950/90 border border-cyan-500 text-cyan-300 uppercase">
+                <span className="text-[10px] font-mono font-bold tracking-widest px-2 py-0.5 bg-cyan-950/90 border border-cyan-500 text-cyan-300 uppercase rounded-xs">
                   WORLD VOICE // GIỌNG NÓI THẾ GIỚI
                 </span>
-                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/50 border border-amber-500/40 px-1.5 py-0.5">
+                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/50 border border-amber-500/40 px-1.5 py-0.5 rounded-xs">
                   {pendingEvolution.type === 'skill' ? 'TIẾN HÓA KỸ NĂNG' : 'ĐA NHÁNH CÂN BẰNG'}
                 </span>
               </div>
               <h2 className="text-base md:text-lg font-black text-white font-mono uppercase tracking-wider mt-1">
-                {pendingEvolution.type === 'skill' 
+                {pendingEvolution.type === 'skill'
                   ? `LỰA CHỌN THĂNG HOA KỸ NĂNG: [${pendingEvolution.currentTitle}]`
                   : 'LỰA CHỌN SỐ MỆNH TIẾN HÓA CHỦNG TỘC'}
               </h2>
@@ -65,7 +77,7 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
 
           <div className="hidden sm:flex flex-col items-end text-[11px] font-mono text-cyan-400">
             <span>
-              {pendingEvolution.type === 'skill' 
+              {pendingEvolution.type === 'skill'
                 ? `TARGET: [${pendingEvolution.currentTitle}]`
                 : `STAGE: GIAI ĐOẠN ${pendingEvolution.branches[0]?.stage || 2}`}
             </span>
@@ -76,7 +88,7 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
         {/* Modal Body */}
         <div className="p-4 md:p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
           {/* World Voice Announcement Message */}
-          <div className="p-3 bg-cyan-950/40 border-l-4 border-cyan-400 border-y border-r border-cyan-500/20 font-mono text-xs text-cyan-200 space-y-1">
+          <div className="p-3 bg-cyan-950/40 border-l-4 border-cyan-400 border-y border-r border-cyan-500/20 font-mono text-xs text-cyan-200 space-y-1 rounded-xs">
             <div className="flex items-center gap-1.5 font-bold text-cyan-300">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               <span>[GIỌNG NÓI THẾ GIỚI PHÁT LỆNH]:</span>
@@ -97,8 +109,13 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-              {(Object.keys(pendingEvolution.factorSnapshot) as (keyof typeof pendingEvolution.factorSnapshot)[]).map((key) => {
-                const meta = FACTOR_METADATA[key];
+              {(Object.keys(pendingEvolution.factorSnapshot || {}) as (keyof typeof pendingEvolution.factorSnapshot)[]).map((key) => {
+                const meta = FACTOR_METADATA[key] || {
+                  icon: '✦',
+                  shortName: key,
+                  color: 'text-cyan-400',
+                  borderColor: 'border-cyan-500/40'
+                };
                 const score = pendingEvolution.factorSnapshot[key] || 0;
                 const pct = Math.round((score / totalFactors) * 100);
                 return (
@@ -189,15 +206,38 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
 
                     {/* Stat Bonuses & Granted / Evolved Skills */}
                     <div className="pt-2 border-t border-slate-800 space-y-2 font-mono text-xs">
-                      <div className="flex items-center gap-3 text-[11px]">
-                        <span className="flex items-center gap-1 text-rose-400 font-bold">
-                          <Heart className="w-3 h-3 text-rose-500" />
-                          <span>+{branch.statBonuses.maxHp} HP</span>
-                        </span>
-                        <span className="flex items-center gap-1 text-cyan-400 font-bold">
-                          <Zap className="w-3 h-3 text-cyan-400" />
-                          <span>+{branch.statBonuses.maxMp} MP</span>
-                        </span>
+                      {/* Hiển thị đầy đủ HP, MP, ATK, DEF, MAGIC */}
+                      <div className="flex flex-wrap items-center gap-2.5 text-[11px]">
+                        {branch.statBonuses.maxHp !== undefined && (
+                          <span className="flex items-center gap-1 text-rose-400 font-bold">
+                            <Heart className="w-3 h-3 text-rose-500" />
+                            <span>+{branch.statBonuses.maxHp} HP</span>
+                          </span>
+                        )}
+                        {branch.statBonuses.maxMp !== undefined && (
+                          <span className="flex items-center gap-1 text-cyan-400 font-bold">
+                            <Zap className="w-3 h-3 text-cyan-400" />
+                            <span>+{branch.statBonuses.maxMp} MP</span>
+                          </span>
+                        )}
+                        {branch.statBonuses.atk !== undefined && (
+                          <span className="flex items-center gap-1 text-amber-300 font-bold">
+                            <Swords className="w-3 h-3 text-amber-400" />
+                            <span>+{branch.statBonuses.atk} ATK</span>
+                          </span>
+                        )}
+                        {branch.statBonuses.def !== undefined && (
+                          <span className="flex items-center gap-1 text-slate-300 font-bold">
+                            <Shield className="w-3 h-3 text-slate-400" />
+                            <span>+{branch.statBonuses.def} DEF</span>
+                          </span>
+                        )}
+                        {branch.statBonuses.magic !== undefined && (
+                          <span className="flex items-center gap-1 text-purple-300 font-bold">
+                            <Sparkles className="w-3 h-3 text-purple-400" />
+                            <span>+{branch.statBonuses.magic} MAG</span>
+                          </span>
+                        )}
                         {branch.skillCategory && (
                           <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-purple-950 border border-purple-400 text-purple-300 rounded-xs uppercase font-bold">
                             {branch.skillCategory} SKILL
@@ -266,8 +306,8 @@ export const EvolutionChoiceModal: React.FC<Props> = ({
             className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] flex items-center justify-center gap-2 rounded-xs cursor-pointer"
           >
             <span>
-              {pendingEvolution.type === 'skill' 
-                ? 'XÁC NHẬN THĂNG HOA KỸ NĂNG' 
+              {pendingEvolution.type === 'skill'
+                ? 'XÁC NHẬN THĂNG HOA KỸ NĂNG'
                 : 'XÁC NHẬN TIẾN HÓA CHỦNG TỘC'}
             </span>
             <ArrowRight className="w-4 h-4 text-slate-950" />
